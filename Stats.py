@@ -5,6 +5,7 @@ import sqlite3
 import numpy
 import datetime
 from scipy.signal import argrelextrema
+from sets import Set
 
 #connect to db
 dbconn = sqlite3.connect('Weather.db')
@@ -58,11 +59,39 @@ def DataForSensor(sensor):
 	print "\tCoverage: \t" + earliestday + " to " + latesday + " (" + str(len(days)) + " days)"
 		
 	
-	print ""
+	#maximal values
+	maxvalue = max(values)
+	maxindices = (numpy.argwhere(values == numpy.amax(values))).flatten().tolist()
+	maxdays = Set([ DayFromTimestamp(timestamps[i]) for i in maxindices])
+	output = "\tMaximum: \t" + str(maxvalue)
+	output = output + " ("
+	count = 0
+	for day in maxdays:
+		count = count + 1
+		output = output + day
+		if count < len(maxdays):
+			output = output + ", "
+	output = output + ")"
+	print output
+	
+	#minimal values
+	minvalue = min(values)
+	minindices = (numpy.argwhere(values == numpy.amin(values))).flatten().tolist()
+	mindays = Set([ DayFromTimestamp(timestamps[i]) for i in minindices])
+	output = "\tMinimum: \t" + str(minvalue)
+	output = output + " ("
+	count = 0
+	for day in mindays:
+		count = count + 1
+		output = output + day
+		if count < len(mindays):
+			output = output + ", "
+	output = output + ")"
+	print output
+	
 	
 #Overall stats
 for sensor in sensors:
 	DataForSensor(sensor)
-
 
 dbconn.close()
