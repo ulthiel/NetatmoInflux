@@ -64,6 +64,15 @@ def DayFromTimestamp(t):
 	#Returns the day in format Y-m-d from a timestamp
 	return datetime.datetime.fromtimestamp(t).strftime('%Y-%m-%d')
 	
+#some timestamp helper functions	
+def DateFromTimestamp(t):
+	#Returns the day in format Y-m-d from a timestamp
+	return datetime.datetime.fromtimestamp(t).strftime('%Y-%m-%d %H:%M')
+	
+def HourFromTimestamp(t):
+	#Returns the month from a timestamp
+	return int(datetime.datetime.fromtimestamp(t).strftime('%H'))
+
 def MonthFromTimestamp(t):
 	#Returns the month from a timestamp
 	return int(datetime.datetime.fromtimestamp(t).strftime('%m'))
@@ -116,16 +125,42 @@ def DataForSensor(sensor):
 	earliesttimestamp = min(timestamps)
 	earliestday = DayFromTimestamp(earliesttimestamp)
 	latesttimestamp = max(timestamps)
-	latesday = DayFromTimestamp(latesttimestamp)
-	days = Set([DayFromTimestamp(timestamp) for timestamp in timestamps])
-			
+	latestday = DayFromTimestamp(latesttimestamp)
+	days = Set([DayFromTimestamp(timestamp) for timestamp in timestamps]) #number of days between earliest and latest
+	totaldays = (datetime.datetime.strptime(latestday, "%Y-%m-%d") - datetime.datetime.strptime(earliestday, "%Y-%m-%d")).days
+				
 	#print general info
 	print "Sensor " + str(sensor)
 	print "\tUnit: \t\t" + unit
 	print "\tLocation: \t" + description
 	print "\tCalibration: \t" + str(calibration)
 	print "\tData points: \t" + str(len(values))
-	print "\tCoverage: \t" + earliestday + " to " + latesday + " (" + str(len(days)) + " days)"
+	print "\tCoverage: \t" + earliestday + " to " + latestday + " (" + str(len(days)) + " days)"
+	
+	#data quality (require one record per hour)
+	hoursperdaycovered = dict()
+	for day in days:
+		hoursperdaycovered[day] = set()
+	for t in timestamps:
+		day = DayFromTimestamp(t)
+		H = HourFromTimestamp(t)
+		hoursperdaycovered[day] = hoursperdaycovered[day] | {H}
+	totalhourscovered = 0
+	missing = []
+	for day in days:
+		totalhourscovered = totalhourscovered + len(hoursperdaycovered[day])
+		if len(hoursperdaycovered[day]) != 24:
+			for i in range(0,24):
+				if i not in hoursperdaycovered[day]:
+					missing.append(day +  ' ' + str(i) + 'h')
+	quality = float(totalhourscovered)/(24.0*float(len(days)))*100.0
+	missingstr = ""
+	for i in range(0,len(missing)):
+		missingstr = missingstr + missing[i]
+		if i < len(missing)-1:
+			missingstr = missingstr + ", "
+	
+	print "\tQuality: \t" + str(round(quality,3)) + "%"# (missing: " + missingstr + ")"
 		
 	#maximal values
 	maxvalue = max(values)
@@ -183,6 +218,7 @@ def DataForSensor(sensor):
 	dailyminavg = numpy.average(dailymin)
 	print "\tDaily minimum:\t" + str(round(dailyminavg, 1)) + " (sigma=" + str(round(numpy.std(dailymin),1)) + ")"
 	
+	print ""
 	
 #Overall stats
 for sensor in sensors:
