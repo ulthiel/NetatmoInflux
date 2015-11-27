@@ -12,12 +12,16 @@ from optparse import OptionParser
 #parse options
 parser = OptionParser()
 parser.add_option("--sensors", dest="sensors",help="Sensors (can be a comma separated list)")
+parser.add_option("--hours", dest="hours",help="Hours (can be a comma separated list)")
 parser.add_option("--months", dest="months",help="Months (can be a comma separated list)")
 parser.add_option("--years", dest="years",help="Years (can be a comma separated list)")
+parser.add_option("--missing", action="store_false", dest="printmissing",help="Print missing entries", default=False)
 (options, args) = parser.parse_args()
 sensors = options.sensors
+hours = options.hours
 months = options.months
 years = options.years
+printmissing = options.printmissing
 
 #connect to db
 dbconn = sqlite3.connect('Weather.db')
@@ -33,8 +37,20 @@ if sensors is None:
 else:
 	sensors = sensors.split(',')
 	
+#timefilter
 timefilter = False
 
+#hours
+if hours is not None:
+	if hours.find(',') > -1:
+		hours = [ int(m) for m in hours.split(',')]
+	elif hours.find('-') > -1:
+		hours = hours.split('-')
+		hours = range(int(hours[0]), int(hours[1])+1)
+	else:
+		hours = [int(hours)]
+	timefilter = True
+	
 #months
 if months is not None:
 	if months.find(',') > -1:
@@ -44,10 +60,9 @@ if months is not None:
 		months = range(int(months[0]), int(months[1])+1)
 	else:
 		months = [int(months)]
-	
 	timefilter = True
 
-#months
+#years
 if years is not None:
 	if years.find(',') > -1:
 		years = [ int(m) for m in years.split(',')]
@@ -56,7 +71,6 @@ if years is not None:
 		years = range(int(years[0]), int(years[1])+1)
 	else:
 		years = [int(years)]
-	
 	timefilter = True
 	
 #some timestamp helper functions	
@@ -106,6 +120,12 @@ def DataForSensor(sensor):
 	
 	#filter out by time restriction
 	if timefilter:
+		if hours is not None:
+			timestampindices = filter(lambda i:HourFromTimestamp(timestamps[i]) in hours, range(0,len(timestamps)))
+			
+			timestamps = timestamps[timestampindices]
+			values = values[timestampindices]
+			
 		if months is not None:
 			timestampindices = filter(lambda i:MonthFromTimestamp(timestamps[i]) in months, range(0,len(timestamps)))
 			
@@ -130,12 +150,12 @@ def DataForSensor(sensor):
 	totaldays = (datetime.datetime.strptime(latestday, "%Y-%m-%d") - datetime.datetime.strptime(earliestday, "%Y-%m-%d")).days
 				
 	#print general info
-	print "Sensor " + str(sensor)
-	print "\tUnit: \t\t" + unit
-	print "\tLocation: \t" + description
-	print "\tCalibration: \t" + str(calibration)
-	print "\tData points: \t" + str(len(values))
-	print "\tCoverage: \t" + earliestday + " to " + latestday + " (" + str(len(days)) + " days)"
+	print "Sensor ID:\t" + str(sensor)
+	print "Unit: \t\t" + unit
+	print "Location: \t" + description
+	print "Calibration: \t" + str(calibration)
+	print "Data points: \t" + str(len(values))
+	print "Coverage: \t" + earliestday + " to " + latestday + " (" + str(len(days)) + " days)"
 	
 	#data quality (require one record per hour)
 	hoursperdaycovered = dict()
@@ -154,19 +174,21 @@ def DataForSensor(sensor):
 				if i not in hoursperdaycovered[day]:
 					missing.append(day +  ' ' + str(i) + 'h')
 	quality = float(totalhourscovered)/(24.0*float(len(days)))*100.0
-	missingstr = ""
-	for i in range(0,len(missing)):
-		missingstr = missingstr + missing[i]
-		if i < len(missing)-1:
-			missingstr = missingstr + ", "
-	
-	print "\tQuality: \t" + str(round(quality,3)) + "%"# (missing: " + missingstr + ")"
+	if printmissing == True:
+		missingstr = ""
+		for i in range(0,len(missing)):
+			missingstr = missingstr + missing[i]
+			if i < len(missing)-1:
+				missingstr = missingstr + ", "
+		print "Quality: \t" + str(round(quality,3)) + "%" + " (missing: " + missingstr + ")"
+	else:
+		print "Quality: \t" + str(round(quality,3)) + "%"
 		
 	#maximal values
 	maxvalue = max(values)
 	maxindices = (numpy.argwhere(values == numpy.amax(values))).flatten().tolist()
 	maxdays = Set([ DayFromTimestamp(timestamps[i]) for i in maxindices])
-	output = "\tMaximum: \t" + str(maxvalue)
+	output = "Maximum: \t" + str(maxvalue)
 	output = output + " ("
 	count = 0
 	for day in maxdays:
@@ -181,7 +203,7 @@ def DataForSensor(sensor):
 	minvalue = min(values)
 	minindices = (numpy.argwhere(values == numpy.amin(values))).flatten().tolist()
 	mindays = Set([ DayFromTimestamp(timestamps[i]) for i in minindices])
-	output = "\tMinimum: \t" + str(minvalue)
+	output = "Minimum: \t" + str(minvalue)
 	output = output + " ("
 	count = 0
 	for day in mindays:
@@ -194,7 +216,7 @@ def DataForSensor(sensor):
 	
 	#average
 	avg = numpy.average(values)
-	print "\tAverage:\t" + str(round(avg, 1)) + " (sigma=" + str(round(numpy.std(values),1)) + ")"
+	print "Average:\t" + str(round(avg, 1)) + " (sigma=" + str(round(numpy.std(values),1)) + ")"
 	
 	#average of daily maxima
 	dailymax = []
@@ -205,7 +227,7 @@ def DataForSensor(sensor):
 		dailymax.append(max(dayvalues))
 	dailymax = numpy.array(dailymax)
 	dailymaxavg = numpy.average(dailymax)
-	print "\tDaily maximum:\t" + str(round(dailymaxavg, 1)) + " (sigma=" + str(round(numpy.std(dailymax),1)) + ")"
+	print "Daily maximum:\t" + str(round(dailymaxavg, 1)) + " (sigma=" + str(round(numpy.std(dailymax),1)) + ")"
 	
 	#average of daily minima
 	dailymin = []
@@ -216,7 +238,7 @@ def DataForSensor(sensor):
 		dailymin.append(min(dayvalues))
 	dailymin = numpy.array(dailymin)
 	dailyminavg = numpy.average(dailymin)
-	print "\tDaily minimum:\t" + str(round(dailyminavg, 1)) + " (sigma=" + str(round(numpy.std(dailymin),1)) + ")"
+	print "Daily minimum:\t" + str(round(dailyminavg, 1)) + " (sigma=" + str(round(numpy.std(dailymin),1)) + ")"
 	
 	print ""
 	
