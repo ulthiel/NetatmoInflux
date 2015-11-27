@@ -8,14 +8,15 @@ import time
 from scipy.signal import argrelextrema
 from sets import Set
 from optparse import OptionParser
+from itertools import chain
 
 #parse options
 parser = OptionParser()
-parser.add_option("--sensors", dest="sensors",help="Sensors (can be a comma separated list)")
-parser.add_option("--hours", dest="hours",help="Hours (can be a comma separated list)")
-parser.add_option("--months", dest="months",help="Months (can be a comma separated list)")
-parser.add_option("--years", dest="years",help="Years (can be a comma separated list)")
-parser.add_option("--missing", action="store_false", dest="printmissing",help="Print missing entries", default=False)
+parser.add_option("--sensors", dest="sensors",help="Sensors (e.g., --sensors=1-2,6-7)")
+parser.add_option("--hours", dest="hours",help="Hours (e.g., --hours=7-9,21)")
+parser.add_option("--months", dest="months",help="Months (e.g., --months=5-8,12)")
+parser.add_option("--years", dest="years",help="Years (e.g., --years=2012,2014-2015)")
+parser.add_option("--missing", action="store_false", dest="printmissing",help="Print missing data", default=False)
 (options, args) = parser.parse_args()
 sensors = options.sensors
 hours = options.hours
@@ -26,7 +27,22 @@ printmissing = options.printmissing
 #connect to db
 dbconn = sqlite3.connect('Weather.db')
 dbcursor = dbconn.cursor()
+	
+#to parse range for the time filter (source: https://gist.github.com/kgaughan/2491663)
+def parse_range(rng):
+    parts = rng.split('-')
+    if 1 > len(parts) > 2:
+        raise ValueError("Bad range: '%s'" % (rng,))
+    parts = [int(i) for i in parts]
+    start = parts[0]
+    end = start if len(parts) == 1 else parts[1]
+    if start > end:
+        end, start = start, end
+    return range(start, end + 1)
 
+def parse_range_list(rngs):
+    return sorted(set(chain(*[parse_range(rng) for rng in rngs.split(',')])))
+    
 #sensor ids
 if sensors is None:
 	sensors = []
@@ -35,42 +51,24 @@ if sensors is None:
 	for sensor in res:
 		sensors.append(int(sensor[0]))
 else:
-	sensors = sensors.split(',')
+	sensors = parse_range_list(sensors)
 	
 #timefilter
 timefilter = False
 
 #hours
 if hours is not None:
-	if hours.find(',') > -1:
-		hours = [ int(m) for m in hours.split(',')]
-	elif hours.find('-') > -1:
-		hours = hours.split('-')
-		hours = range(int(hours[0]), int(hours[1])+1)
-	else:
-		hours = [int(hours)]
+	hours = parse_range_list(hours)
 	timefilter = True
 	
 #months
 if months is not None:
-	if months.find(',') > -1:
-		months = [ int(m) for m in months.split(',')]
-	elif months.find('-') > -1:
-		months = months.split('-')
-		months = range(int(months[0]), int(months[1])+1)
-	else:
-		months = [int(months)]
+	months = parse_range_list(months)
 	timefilter = True
 
 #years
 if years is not None:
-	if years.find(',') > -1:
-		years = [ int(m) for m in years.split(',')]
-	elif years.find('-') > -1:
-		years = years.split('-')
-		years = range(int(years[0]), int(years[1])+1)
-	else:
-		years = [int(years)]
+	years = parse_range_list(years)
 	timefilter = True
 	
 #some timestamp helper functions	
