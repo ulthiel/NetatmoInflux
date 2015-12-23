@@ -131,7 +131,7 @@ class ProgressBar(object):
 
     def __init__(self, maxval=None, widgets=None, term_width=None, poll=0.1,
                  left_justify=True, fd=sys.stderr, redirect_stderr=False,
-                 redirect_stdout=False):
+                 redirect_stdout=False, CR=False):
         '''Initializes a progress bar with sane defaults'''
 
         if widgets is None:
@@ -144,6 +144,7 @@ class ProgressBar(object):
         self.left_justify = left_justify
         self.redirect_stderr = redirect_stderr
         self.redirect_stdout = redirect_stdout
+        self.CR = CR
 
         self.signal_set = False
         if term_width is not None:
@@ -344,6 +345,9 @@ class ProgressBar(object):
 
         if self.maxval is None:
             self.maxval = self._DEFAULT_MAXVAL
+            
+        if self.CR is None:
+        	self.CR=False
 
         self.num_intervals = max(100, self.term_width)
         self.next_update = 0
@@ -363,7 +367,10 @@ class ProgressBar(object):
 
         self.finished = True
         self.update(self.maxval)
-        self.fd.write('\n')
+        if self.CR is not None and self.CR:
+        	self.fd.write('\r')
+        else:
+        	self.fd.write('\n')
         if self.signal_set:
             signal.signal(signal.SIGWINCH, signal.SIG_DFL)
 

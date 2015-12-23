@@ -14,9 +14,6 @@
 import sys
 import sqlite3
 import numpy
-import datetime
-import calendar
-import time
 from scipy.signal import argrelextrema
 from sets import Set
 from optparse import OptionParser
@@ -25,6 +22,7 @@ from progressbar import AnimatedMarker, Bar, BouncingBar, Counter, ETA, \
     FileTransferSpeed, FormatLabel, Percentage, \
     ProgressBar, ReverseBar, RotatingMarker, \
     SimpleProgress, Timer, AdaptiveETA, AdaptiveTransferSpeed
+from DateHelper import *
 
     
 ##############################################################################
@@ -47,8 +45,8 @@ parser.add_option("--hours", dest="hours",help="Hours (e.g., --hours=7-9,21)")
 parser.add_option("--days", dest="days",help="Days (e.g., --days=5-8,12)")
 parser.add_option("--months", dest="months",help="Months (e.g., --months=5-8,12)")
 parser.add_option("--years", dest="years",help="Years (e.g., --years=2012,2014-2015)")
-#parser.add_option("--start", dest="start",help="Start date (e.g., --start=2014-05-24)")
-#parser.add_option("--end", dest="end",help="End date (e.g., --end=2015-05-24)")
+parser.add_option("--start", dest="start",help="Start date (e.g., --start=2014-05-24)")
+parser.add_option("--end", dest="end",help="End date (e.g., --end=2015-05-24)")
 parser.add_option("--missing", action="store_true", dest="printmissing",help="Print missing data", default=False)
 (options, args) = parser.parse_args()
 sensors = options.sensors
@@ -56,6 +54,8 @@ hours = options.hours
 days = options.days
 months = options.months
 years = options.years
+start = options.start
+end = options.end
 printmissing = options.printmissing
 
 	
@@ -106,213 +106,207 @@ if years is not None:
 	years = parse_range_list(years)
 	
 ##############################################################################
-#some timestamp helper functions	
-def DateFromTimestamp(t):
-	#Returns the date in format Y-m-d from a timestamp
-	return datetime.datetime.fromtimestamp(t).strftime('%Y-%m-%d')
+def GetSensorQuality(sensor, datehours, verbose=None):
 	
-#some timestamp helper functions	
-def FullDateFromTimestamp(t):
-	#Returns the day in format Y-m-d from a timestamp
-	return datetime.datetime.fromtimestamp(t).strftime('%Y-%m-%d %H:%M')
+	if verbose is None:	
+		verbose = False
 	
-def DateAndHourFromTimestamp(t):
-	#Returns the day in format Y-m-d from a timestamp
-	return datetime.datetime.fromtimestamp(t).strftime('%Y-%m-%d %Hh')
-	
-def HourFromTimestamp(t):
-	#Returns the month from a timestamp
-	return int(datetime.datetime.fromtimestamp(t).strftime('%H'))
-	
-def DayFromTimestamp(t):
-	#Returns the month from a timestamp
-	return int(datetime.datetime.fromtimestamp(t).strftime('%d'))
+	if verbose:
+		widgets = [
+			'Data quality:  ', Percentage(),
+			' ', Bar(),
+			' ', ETA()
+		]
+		pbar = ProgressBar(widgets=widgets, maxval=len(datehours), CR=True)
+		pbar.start()
 
-def MonthFromTimestamp(t):
-	#Returns the month from a timestamp
-	return int(datetime.datetime.fromtimestamp(t).strftime('%m'))
+	count = 0
+	missingdatehours = []
+	numdatapoints = 0
+	for e in datehours:
+		y = e[0]
+		m = e[1]
+		d = e[2]
+		h = e[3]
+		starttimestamp = TimestampOfDatetime(str(y)+"-"+str(m)+"-"+str(d)+" "+str(h)+":00")
+		stoptimestamp = TimestampOfDatetime(str(y)+"-"+str(m)+"-"+str(d)+" "+str(h)+":59")+60.0
+		res = (dbcursor.execute("SELECT COUNT(Timestamp) FROM Data WHERE Sensor IS "+str(sensor)+' AND Timestamp>='+str(starttimestamp)+' AND Timestamp<'+str(stoptimestamp)+' ORDER BY Timestamp ASC').fetchone())[0]
+		if res is None or res == 0:
+			missingdatehours.append(e)
+		else:
+			numdatapoints = numdatapoints + int(res)
+		count = count + 1
+		if verbose:
+			pbar.update(count)
 	
-def YearFromTimestamp(t):
-	#Returns the month from a timestamp
-	return int(datetime.datetime.fromtimestamp(t).strftime('%Y'))
-
-def FirstTimestampOfDate(s):
-	#Returns first timestamp of date s (s in format Y-m-d)
-	return time.mktime(datetime.datetime.strptime(s, "%Y-%m-%d").timetuple())
-	
-def LastTimestampOfDate(s):
-	#Returns last timestamp of date s (s in format Y-m-d)
-	return time.mktime((datetime.datetime.strptime(s, "%Y-%m-%d") + datetime.timedelta(1)).timetuple() )
-	
-def FirstTimestampOfYear(s):
-	#Returns first timestamp of year s
-	return FirstTimestampOfDate(s+"-01-01")
-	
-def LastTimestampOfYear(s):
-	#Returns last timestamp of year s
-	return LastTimestampOfDate(s+"-12-31")
-	
-def FirstTimestampOfMonth(y,m):
-	#Returns first timestamp of month m of year y
-	return FirstTimestampOfDate(str(y)+"-"+str(m)+"-01")
-
-def LastDayOfMonth(y,m):
-	#Returns last date of month m of year y
-	return calendar.monthrange(y,m)[1]
-	
-def LastTimestampOfMonth(y,m):
-	#Returns first timestamp of month m of year y
-	return LastTimestampOfDate(str(y)+"-"+str(m)+"-"+str(LastDayOfMonth(y,m)))
+	if verbose:		
+		pbar.finish()
+		sys.stdout.write("\033[K") # 
 		
-def TimestampOfFullDate(s):
-	#Returns first timestamp of date s (s in format Y-m-d H:m)
-	return time.mktime(datetime.datetime.strptime(s, "%Y-%m-%d %H:%M").timetuple())
-
+	#quality
+	quality = 100.0*(float(len(datehours)-len(missingdatehours))/float(len(datehours)))
+	
+	#verbose = kwargs.get('verbose', )
+	
+	if verbose is not None and verbose:	
+		print "Data points: \t" + str(numdatapoints)
+	
+		if quality < 90:
+			print "Data quality: \t" + bcolors.FAIL + str(round(quality,3)) + "%" + bcolors.ENDC + " (" + str(len(datehours)-len(missingdatehours)) + "/" + str(len(datehours)) + ")"
+		else:
+			print "Data quality: \t" + bcolors.OKGREEN + str(round(quality,3)) + "%" + bcolors.ENDC + " (" + str(len(datehours)-len(missingdatehours)) + "/" + str(len(datehours)) + ")"
+	
+	return [quality, missingdatehours, numdatapoints]
+	
 ##############################################################################
-#compute data for sensor
-def DataForSensor(sensor):
+def Analyze(sensor, datehours, verbose=None):
+	
+	calibration = ((dbcursor.execute("SELECT Calibration From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]	
 
-	#sensor info
+	#read data	
+	if verbose is None:	
+		verbose = False
+	
+	if verbose:
+		widgets = [
+			'Reading data:  ', Percentage(),
+			' ', Bar(),
+			' ', ETA()
+		]
+		pbar = ProgressBar(widgets=widgets, maxval=2*len(datehours), CR=True)
+		pbar.start()
+
+	#create data dictionary
+	data = dict()
+	dates = []
+	count = 0
+	for e in datehours:
+		y = e[0]
+		if y not in data.keys():
+			data[y] = dict()
+		m = e[1]
+		if m not in data[y].keys():
+			data[y][m] = dict()
+		d = e[2]
+		if d not in data[y][m].keys():
+			data[y][m][d] = dict()
+		if [y,m,d] not in dates:
+			dates.append([y,m,d])
+		count = count + 1
+		if verbose:
+			pbar.update(count)
+			
+	#read data
+	numdatapoints = 0
+	missingdatehours = []		
+	for e in datehours:
+		y = e[0]
+		m = e[1]
+		d = e[2]
+		h = e[3]
+		starttimestamp = TimestampOfDatetime(str(y)+"-"+str(m)+"-"+str(d)+" "+str(h)+":00")
+		stoptimestamp = TimestampOfDatetime(str(y)+"-"+str(m)+"-"+str(d)+" "+str(h)+":59")+60.0
+		res = (dbcursor.execute("SELECT Timestamp, Value FROM Data WHERE Sensor IS "+str(sensor)+' AND Timestamp>='+str(starttimestamp)+' AND Timestamp<'+str(stoptimestamp)+' ORDER BY Timestamp ASC').fetchall())
+		calibres = [ (r[0],r[1]+calibration) for r in res ]
+		data[y][m][d][h] = numpy.array(calibres, dtype=[('timestamp', numpy.uint32),('value',numpy.float64)])	
+		count = count + 1		
+		if verbose:
+			pbar.update(count)
+		
+	if verbose:	
+		pbar.finish()
+		sys.stdout.write("\033[K") # 
+	
+	#total data
+	totaldata = numpy.concatenate([data[e[0]][e[1]][e[2]][e[3]] for e in datehours if len(data[e[0]][e[1]][e[2]][e[3]]) > 0])
+	
+	#total maximum
+	totalmax = totaldata['value'].max()	
+	totalmaxdatehours = [DateAndHourFromTimestamp(totaldata['timestamp'][i]) for i in (numpy.argwhere(totaldata['value'] == totalmax)).flatten().tolist()]
+	totalmaxdatehours = [d for n, d in enumerate(totalmaxdatehours) if d not in totalmaxdatehours[:n]]
+	
+	if verbose:
+		out = "Maximum: \t" + str(totalmax) + " ("
+		for i in range(0,len(totalmaxdatehours)):
+			out = out + totalmaxdatehours[i]
+			if i < len(totalmaxdatehours)-1:
+				out = out + ", "
+		out = out + ")"
+		print out
+	
+	#total minimum
+	totalmin = totaldata['value'].min()
+	totalmindatehours = [DateAndHourFromTimestamp(totaldata['timestamp'][i]) for i in (numpy.argwhere(totaldata['value'] == totalmin)).flatten().tolist()]
+	totalmindatehours = [d for n, d in enumerate(totalmindatehours) if d not in totalmindatehours[:n]]
+	
+	if verbose:
+		out = "Minimum: \t" + str(totalmin) + " ("
+		for i in range(0,len(totalmindatehours)):
+			out = out + totalmindatehours[i]
+			if i < len(totalmindatehours)-1:
+				out = out + ", "
+		out = out + ")"
+		print out
+	
+	#total average
+	totalavg = totaldata['value'].mean()
+	totalsigma = totaldata['value'].std()
+	if verbose:
+		print "Average:\t" + str(round(totalavg,3)) + " (σ=" + str(round(totalsigma,3))+")"
+		
+	#daily data
+#	dailydata = dict()
+#	for day in dates:
+#		y = day[0]
+#		m = day[1]
+#		d = day[2]
+#		if y not in dailydata.keys():
+#			dailydata[y] = dict()
+#		if m not in dailydata[y].keys():
+#			dailydata[y][m] = dict()
+#		dailydata[y][m][d] = numpy.concatenate([ data[y][m][d][h] for h in data[y][m][d].keys() if len(data[y][m][d][h]) > 0])
+		
+	
+##############################################################################
+def PrintGeneralSensorInfo(sensor):
+	
 	timezone = ((dbcursor.execute("SELECT Timezone From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]
+	measurand = ((dbcursor.execute("SELECT Measurand From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]
 	unit = ((dbcursor.execute("SELECT Unit From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]
 	calibration = ((dbcursor.execute("SELECT Calibration From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]	
 	description = timezone = ((dbcursor.execute("SELECT Description From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]	
 	
-	#print general info
 	print "Sensor ID:\t" + str(sensor)
-	print "Unit: \t\t" + unit
+	print "Measurand: \t" + measurand + " ("+unit+")"
 	print "Location: \t" + description
 	print "Calibration: \t" + str(calibration)
 	
-	#get start and end year if not defined
+##############################################################################		
+#Overall stats
+for sensor in sensors:
+
+	PrintGeneralSensorInfo(sensor)
+	
+	#we first determine the datehour range from selected time restriction
+	#if no year range is given, we pick all available years for sensor
 	if years is None:
 		mincoveredtimestamp = ((dbcursor.execute("SELECT MIN(Timestamp) FROM Data WHERE Sensor IS "+str(sensor))).fetchone())[0]
 		minyear = YearFromTimestamp(mincoveredtimestamp)
 		maxcoveredtimestamp = ((dbcursor.execute("SELECT MAX(Timestamp) FROM Data WHERE Sensor IS "+str(sensor))).fetchone())[0]
 		maxyear = YearFromTimestamp(maxcoveredtimestamp)
-		yearslocal = range(minyear,maxyear+1)
-	else:
-		minyear = min(years)
-		maxyear = max(years)
-		yearslocal = years
+		years = range(minyear,maxyear+1)
 		
-	if months is None:
-		monthslocal = range(1,13)
-	else:
-		monthslocal = months
-	
-	if days is None:
-		dayslocal = range(1,32)
-	else:
-		dayslocal = days
-			
-	if hours is None:
-		hourslocal = range(0,24)
-	else:
-		hourslocal = hours
-				
-	missingslots = []
-	dates = []	#will be the list of dates Y-m-d which lie in selection
-	numdates = 0	#will be length of dates
-	data = dict()	#will be a dictionary indexed by dates containing data for each day in selection
-	numdatapoints = 0	#will be total number of data points in selection
-	numslots = 0	#a slot is of the form Y-m-d H in selection
-	missingslots = []	#slots where we do not have any data
-	for y in yearslocal:
-		data[y] = dict()
-		for m in monthslocal:
-			data[y][m] = dict()
-			for d in [day for day in range(1, calendar.monthrange(y,m)[1]+1) if day in dayslocal]:
-				numdates = numdates + 1
-				data[y][m][d] = dict()	
-				daydata = []	
-				dates.append([y,m,d])
-				for h in hourslocal:
-					numslots = numslots + 1
-					starttimestamp = TimestampOfFullDate(str(y)+"-"+str(m)+"-"+str(d)+" "+str(h)+":00")
-					stoptimestamp = TimestampOfFullDate(str(y)+"-"+str(m)+"-"+str(d)+" "+str(h)+":59")+60.0
-					res = (dbcursor.execute("SELECT Timestamp, Value FROM Data WHERE Sensor IS "+str(sensor)+' AND Timestamp>='+str(starttimestamp)+' AND Timestamp<'+str(stoptimestamp)+' ORDER BY Timestamp ASC').fetchall())
-					daydata = daydata + res
-					numdatapoints = numdatapoints + len(res)
-					if len(res) == 0:
-						missingslots.append([y,m,d,h])
-				
-				data[y][m][d] = numpy.array(daydata, dtype=[('timestamp', numpy.uint32),('value',numpy.float64)])	
-					
-	minmonth = min(monthslocal)
-	if minmonth < 10:
-		minmonthstr = "0"+str(minmonth)
-	else:
-		minmonthstr = str(minmonth)
-	minday = min([day for day in range(1, calendar.monthrange(minyear,minmonth)[1]+1) if day in dayslocal])
-	if minday < 10:
-		mindaystr = "0"+str(minday)
-	else:
-		mindaystr = str(minday)
-	maxmonth = max(monthslocal)
-	if maxmonth < 10:
-		maxmonthstr = "0"+str(maxmonth)
-	else:
-		maxmonthstr = str(maxmonth)
-	maxday = max([day for day in range(1, calendar.monthrange(maxyear,maxmonth)[1]+1) if day in dayslocal])
-	if maxday < 10:
-		maxdaystr = "0"+str(maxday)
-	else:
-		maxdaystr = str(maxday)
-	
-	print "Range bounds: \t" + str(minyear)+"-"+minmonthstr+"-"+mindaystr+" to "+str(maxyear)+"-"+maxmonthstr+"-"+maxdaystr + " ("+ str(numdates)+" days in selection)"
-	
-	print "Data points: \t" + str(numdatapoints)
-	
-	#quality
-	quality = 100.0*(float(numslots-len(missingslots))/float(numslots))
-
-	if quality < 90:
-		print "Data quality: \t" + bcolors.FAIL + str(round(quality,3)) + "%" + bcolors.ENDC + " (" + str(numslots-len(missingslots)) + "/" + str(numslots) + ")"
-	else:
-		print "Data quality: \t" + bcolors.OKGREEN + str(round(quality,3)) + "%" + bcolors.ENDC + " (" + str(numslots-len(missingslots)) + "/" + str(numslots) + ")"
+	tmp = GetDateHours(years, months, days, hours, start, end)
+	dates = tmp[0]
+	datehours = tmp[1]
+	startdate = time.strftime("%Y-%m-%d", dates[0] + [0,0,0,0,0,0])
+	enddate = time.strftime("%Y-%m-%d", dates[len(dates)-1] + [0,0,0,0,0,0])
+	print "Coverage: \t" + startdate + " to " + enddate  + " ("+str(len(dates))+" days)"
+	tmp = GetSensorQuality(sensor, datehours,verbose=True)
+	quality = round(tmp[0],3)
+	missingdatehours = tmp[1]
+	numdatapoints = tmp[2]
 		
-	#analysis
-	dailymax = numpy.array([ data[date[0]][date[1]][date[2]]['value'].max() for date in dates if len(data[date[0]][date[1]][date[2]]) > 0 ])
-	dailymin = numpy.array([ data[date[0]][date[1]][date[2]]['value'].min() for date in dates if len(data[date[0]][date[1]][date[2]]) > 0 ])
-	dailymean = numpy.array([ data[date[0]][date[1]][date[2]]['value'].mean() for date in dates if len(data[date[0]][date[1]][date[2]]) > 0 ])
-	dailymaxmean = dailymax.mean()
-	dailymaxstd = dailymax.std()
-	dailyminmean = dailymin.mean()
-	dailyminstd = dailymin.std()
-	flatlist = numpy.concatenate([ data[date[0]][date[1]][date[2]] for date in dates if len(data[date[0]][date[1]][date[2]]) > 0 ])
-	maxvalue = flatlist['value'].max()
-	maxdatestmp = [DateAndHourFromTimestamp(flatlist['timestamp'][i]) for i in (numpy.argwhere(flatlist['value'] == maxvalue)).flatten().tolist()]
-	maxdates = [d for n, d in enumerate(maxdatestmp) if d not in maxdatestmp[:n]]
-	minvalue = flatlist['value'].min()
-	mindatestmp = [DateAndHourFromTimestamp(flatlist['timestamp'][i]) for i in (numpy.argwhere(flatlist['value'] == minvalue)).flatten().tolist()]
-	mindates = [d for n, d in enumerate(mindatestmp) if d not in mindatestmp[:n]]
-	mean = flatlist['value'].mean()
-	std = flatlist['value'].std()
-		
-	maxstr = "Maximum: \t" + str(maxvalue) + " ("
-	for i in range(0,len(maxdates)):
-		maxstr = maxstr + maxdates[i]
-		if i < len(maxdates)-1:
-			maxstr = maxstr + ", "
-	maxstr = maxstr + ")"
-	print maxstr
+	Analyze(sensor, datehours,verbose=True)
 	
-	minstr = "Minimum: \t" + str(minvalue) + " ("
-	for i in range(0,len(mindates)):
-		minstr = minstr + mindates[i]
-		if i < len(mindates)-1:
-			minstr = minstr + ", "
-	minstr = minstr + ")"
-	print minstr
-	
-	print "Average: \t" + str(round(mean,3))  + " (σ=" + str(round(std,3))+")"
-	print "Daily maximum: \t" + str(round(dailymaxmean,3)) + " (σ=" + str(round(dailymaxstd,3))+")"
-	print "Daily minimum: \t" + str(round(dailyminmean,3)) + " (σ=" + str(round(dailyminstd,3))+")"
-		
-	
-#Overall stats
-for sensor in sensors:
-	DataForSensor(sensor)
-
 dbconn.close()
