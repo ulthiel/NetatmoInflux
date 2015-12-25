@@ -278,10 +278,12 @@ def Analyze(sensor, datehours, verbose=None):
 	hourstd = [ hourdata[h]['value'].std() for h in availablehours ]
 			
 	#hour average plot
-	plt.errorbar(availablehours, houravg, hourstd)
-	plt.xlim([min(availablehours),max(availablehours)])
+	plt.errorbar(availablehours, houravg, hourstd, marker='^')
+	#plt.xmin('tight')
+	plt.xlim([min(availablehours)-1,max(availablehours)+1])
 	plt.xlabel('Hour')
-	plt.ylabel('Average ' + measurand + "(" + unit + ")")
+	plt.ylabel('Average ' + measurand + " (" + unit + ")")
+	plt.xticks(availablehours, availablehours)
 	plt.figure()
 	
 	#month data
@@ -299,10 +301,13 @@ def Analyze(sensor, datehours, verbose=None):
 	monthstd = [ monthdata[h]['value'].std() for h in availablemonths ]
 			
 	#hour average plot
-	plt.errorbar(availablemonths, monthavg, monthstd)
-	plt.xlim([min(availablemonths),max(availablemonths)])
-	plt.xlabel('Month')
-	plt.ylabel('Average ' + measurand + "(" + unit + ")")
+	if len(availablemonths) > 1:
+		plt.errorbar(availablemonths, monthavg, monthstd, marker='^')
+		#plt.axis('tight')
+		plt.xlim([min(availablemonths)-1,max(availablemonths)+1])
+		plt.xlabel('Month')
+		plt.ylabel('Average ' + measurand + " (" + unit + ")")
+		plt.xticks(availablemonths, availablemonths)
 	
 	plt.show()
 	
