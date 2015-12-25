@@ -1,5 +1,8 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+
+
+
 ##############################################################################
 # WeatherStats
 # A tiny Python script for weather data management and analysis
@@ -18,10 +21,8 @@ from scipy.signal import argrelextrema
 from sets import Set
 from optparse import OptionParser
 from itertools import chain
-from progressbar import AnimatedMarker, Bar, BouncingBar, Counter, ETA, \
-    FileTransferSpeed, FormatLabel, Percentage, \
-    ProgressBar, ReverseBar, RotatingMarker, \
-    SimpleProgress, Timer, AdaptiveETA, AdaptiveTransferSpeed
+from progressbar import Bar, ETA, Percentage, ProgressBar
+import matplotlib.pyplot as plt
 from DateHelper import *
 
     
@@ -146,8 +147,6 @@ def GetSensorQuality(sensor, datehours, verbose=None):
 	#quality
 	quality = 100.0*(float(len(datehours)-len(missingdatehours))/float(len(datehours)))
 	
-	#verbose = kwargs.get('verbose', )
-	
 	if verbose is not None and verbose:	
 		print "Data points: \t" + str(numdatapoints)
 	
@@ -161,6 +160,8 @@ def GetSensorQuality(sensor, datehours, verbose=None):
 ##############################################################################
 def Analyze(sensor, datehours, verbose=None):
 	
+	measurand = ((dbcursor.execute("SELECT Measurand From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]
+	unit = ((dbcursor.execute("SELECT Unit From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]
 	calibration = ((dbcursor.execute("SELECT Calibration From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]	
 
 	#read data	
@@ -173,32 +174,14 @@ def Analyze(sensor, datehours, verbose=None):
 			' ', Bar(),
 			' ', ETA()
 		]
-		pbar = ProgressBar(widgets=widgets, maxval=2*len(datehours), CR=True)
+		pbar = ProgressBar(widgets=widgets, maxval=len(datehours), CR=True)
 		pbar.start()
-
-	#create data dictionary
-	data = dict()
-	dates = []
-	count = 0
-	for e in datehours:
-		y = e[0]
-		if y not in data.keys():
-			data[y] = dict()
-		m = e[1]
-		if m not in data[y].keys():
-			data[y][m] = dict()
-		d = e[2]
-		if d not in data[y][m].keys():
-			data[y][m][d] = dict()
-		if [y,m,d] not in dates:
-			dates.append([y,m,d])
-		count = count + 1
-		if verbose:
-			pbar.update(count)
 			
 	#read data
-	numdatapoints = 0
-	missingdatehours = []		
+	data = dict()
+	availabledatehours = []	#tuples [y,m,d,h] so that at least one data point exists for this datehour
+	availabledates = []
+	count = 0	
 	for e in datehours:
 		y = e[0]
 		m = e[1]
@@ -207,8 +190,20 @@ def Analyze(sensor, datehours, verbose=None):
 		starttimestamp = TimestampOfDatetime(str(y)+"-"+str(m)+"-"+str(d)+" "+str(h)+":00")
 		stoptimestamp = TimestampOfDatetime(str(y)+"-"+str(m)+"-"+str(d)+" "+str(h)+":59")+60.0
 		res = (dbcursor.execute("SELECT Timestamp, Value FROM Data WHERE Sensor IS "+str(sensor)+' AND Timestamp>='+str(starttimestamp)+' AND Timestamp<'+str(stoptimestamp)+' ORDER BY Timestamp ASC').fetchall())
-		calibres = [ (r[0],r[1]+calibration) for r in res ]
-		data[y][m][d][h] = numpy.array(calibres, dtype=[('timestamp', numpy.uint32),('value',numpy.float64)])	
+		if len(res) > 0:
+			if y not in data.keys():
+				data[y] = dict()
+			if m not in data[y].keys():
+				data[y][m] = dict()
+			if d not in data[y][m].keys():
+				data[y][m][d] = dict()
+			if [y,m,d,h] not in availabledatehours:
+				availabledatehours.append([y,m,d,h])
+			if [y,m,d] not in availabledates:
+				availabledates.append([y,m,d])
+			calibres = [ (r[0],r[1]+calibration) for r in res ]	
+			data[y][m][d][h] = numpy.array(calibres, dtype=[('timestamp', numpy.uint32),('value',numpy.float64)])	
+			
 		count = count + 1		
 		if verbose:
 			pbar.update(count)
@@ -216,9 +211,9 @@ def Analyze(sensor, datehours, verbose=None):
 	if verbose:	
 		pbar.finish()
 		sys.stdout.write("\033[K") # 
-	
+		
 	#total data
-	totaldata = numpy.concatenate([data[e[0]][e[1]][e[2]][e[3]] for e in datehours if len(data[e[0]][e[1]][e[2]][e[3]]) > 0])
+	totaldata = numpy.concatenate([data[e[0]][e[1]][e[2]][e[3]] for e in availabledatehours])
 	
 	#total maximum
 	totalmax = totaldata['value'].max()	
@@ -254,18 +249,63 @@ def Analyze(sensor, datehours, verbose=None):
 	if verbose:
 		print "Average:\t" + str(round(totalavg,3)) + " (σ=" + str(round(totalsigma,3))+")"
 		
-	#daily data
-#	dailydata = dict()
-#	for day in dates:
-#		y = day[0]
-#		m = day[1]
-#		d = day[2]
-#		if y not in dailydata.keys():
-#			dailydata[y] = dict()
-#		if m not in dailydata[y].keys():
-#			dailydata[y][m] = dict()
-#		dailydata[y][m][d] = numpy.concatenate([ data[y][m][d][h] for h in data[y][m][d].keys() if len(data[y][m][d][h]) > 0])
+	#daily maximum
+	dailymax = numpy.array([ (time.strftime("%Y-%m-%d", day + [0,0,0,0,0,0]), numpy.concatenate([ data[day[0]][day[1]][day[2]][h] for h in data[day[0]][day[1]][day[2]].keys() ])['value'].max()) for day in availabledates ], dtype=[('date', '|S10'),('value',numpy.float64)])	
+	dailymaxaverage = dailymax['value'].mean()
+	dailymaxsigma = dailymax['value'].std()
+	if verbose:
+		print "Daily maximum:\t" + str(round(dailymaxaverage,3)) + " (σ=" + str(round(dailymaxsigma,3))+")"	
+	
+	#daily minimum
+	dailymin = numpy.array([ (time.strftime("%Y-%m-%d", day + [0,0,0,0,0,0]), numpy.concatenate([ data[day[0]][day[1]][day[2]][h] for h in data[day[0]][day[1]][day[2]].keys() ])['value'].min()) for day in availabledates ], dtype=[('date', '|S10'),('value',numpy.float64)])	
+	dailyminaverage = dailymin['value'].mean()
+	dailyminsigma = dailymin['value'].std()
+	if verbose:
+		print "Daily minimum:\t" + str(round(dailyminaverage,3)) + " (σ=" + str(round(dailyminsigma,3))+")"	
 		
+	#hour data
+	hourdata = dict()
+	for h in range(0,24):
+		hdata = [ data[e[0]][e[1]][e[2]][e[3]] for e in availabledatehours if e[3] == h ]
+		if len(hdata) == 0:
+			continue
+		else:
+			hourdata[h] = numpy.concatenate(hdata)
+	
+	#hour average
+	availablehours = hourdata.keys()
+	houravg = [ hourdata[h]['value'].mean() for h in availablehours ]
+	hourstd = [ hourdata[h]['value'].std() for h in availablehours ]
+			
+	#hour average plot
+	plt.errorbar(availablehours, houravg, hourstd)
+	plt.xlim([min(availablehours),max(availablehours)])
+	plt.xlabel('Hour')
+	plt.ylabel('Average ' + measurand + "(" + unit + ")")
+	plt.figure()
+	
+	#month data
+	monthdata = dict()
+	for m in range(1,13):
+		mdata = [ data[e[0]][e[1]][e[2]][e[3]] for e in availabledatehours if e[1] == m ]
+		if len(mdata) == 0:
+			continue
+		else:
+			monthdata[m] = numpy.concatenate(mdata)
+			
+	#month average
+	availablemonths = monthdata.keys()
+	monthavg = [ monthdata[h]['value'].mean() for h in availablemonths ]
+	monthstd = [ monthdata[h]['value'].std() for h in availablemonths ]
+			
+	#hour average plot
+	plt.errorbar(availablemonths, monthavg, monthstd)
+	plt.xlim([min(availablemonths),max(availablemonths)])
+	plt.xlabel('Month')
+	plt.ylabel('Average ' + measurand + "(" + unit + ")")
+	
+	plt.show()
+	
 	
 ##############################################################################
 def PrintGeneralSensorInfo(sensor):
@@ -308,5 +348,8 @@ for sensor in sensors:
 	numdatapoints = tmp[2]
 		
 	Analyze(sensor, datehours,verbose=True)
+	
+	if len(sensors) > 1:
+		print ""
 	
 dbconn.close()
