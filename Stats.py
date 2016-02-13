@@ -278,13 +278,12 @@ def Analyze(sensor, datehours, verbose=None):
 	hourstd = [ hourdata[h]['value'].std() for h in availablehours ]
 			
 	#hour average plot
-	plt.errorbar(availablehours, houravg, hourstd, marker='^')
-	#plt.xmin('tight')
-	plt.xlim([min(availablehours)-1,max(availablehours)+1])
-	plt.xlabel('Hour')
-	plt.ylabel('Average ' + measurand + " (" + unit + ")")
-	plt.xticks(availablehours, availablehours)
-	plt.figure()
+	#plt.errorbar(availablehours, houravg, hourstd, marker='^')
+	#plt.xlim([min(availablehours)-1,max(availablehours)+1])
+	#plt.xlabel('Hour')
+	#plt.ylabel('Average ' + measurand + " (" + unit + ")")
+	#plt.xticks(availablehours, availablehours)
+	#plt.figure()
 	
 	#month data
 	monthdata = dict()
@@ -301,15 +300,14 @@ def Analyze(sensor, datehours, verbose=None):
 	monthstd = [ monthdata[h]['value'].std() for h in availablemonths ]
 			
 	#hour average plot
-	if len(availablemonths) > 1:
-		plt.errorbar(availablemonths, monthavg, monthstd, marker='^')
-		#plt.axis('tight')
-		plt.xlim([min(availablemonths)-1,max(availablemonths)+1])
-		plt.xlabel('Month')
-		plt.ylabel('Average ' + measurand + " (" + unit + ")")
-		plt.xticks(availablemonths, availablemonths)
+	#if len(availablemonths) > 1:
+		#plt.errorbar(availablemonths, monthavg, monthstd, marker='^')
+		#plt.xlim([min(availablemonths)-1,max(availablemonths)+1])
+		#plt.xlabel('Month')
+		#plt.ylabel('Average ' + measurand + " (" + unit + ")")
+		#plt.xticks(availablemonths, availablemonths)
 	
-	plt.show()
+	#plt.show()
 	
 	
 ##############################################################################
@@ -325,12 +323,19 @@ def PrintGeneralSensorInfo(sensor):
 	print "Measurand: \t" + measurand + " ("+unit+")"
 	print "Location: \t" + description
 	print "Calibration: \t" + str(calibration)
-	
+
 ##############################################################################		
 #Overall stats
 for sensor in sensors:
 
 	PrintGeneralSensorInfo(sensor)
+	
+	#Check if data available
+	numpoints = ((dbcursor.execute("SELECT COUNT(Timestamp) FROM Data WHERE Sensor IS "+str(sensor))).fetchone())[0]
+	if numpoints == 0:
+		print "Data points: \t" + bcolors.FAIL + "0" + bcolors.ENDC 
+		print ""
+		continue
 	
 	#we first determine the datehour range from selected time restriction
 	#if no year range is given, we pick all available years for sensor

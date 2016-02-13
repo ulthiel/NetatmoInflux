@@ -27,6 +27,14 @@ def DateAndHourFromTimestamp(t):
 	#Returns the day in format Y-m-d from a timestamp
 	return datetime.datetime.fromtimestamp(t).strftime('%Y-%m-%d %Hh')
 	
+def MinuteFromTimestamp(t):
+	#Returns the minute from a timestamp
+	return int(datetime.datetime.fromtimestamp(t).strftime('%M'))
+
+def SecondFromTimestamp(t):
+	#Returns the second from a timestamp
+	return int(datetime.datetime.fromtimestamp(t).strftime('%S'))
+		
 def HourFromTimestamp(t):
 	#Returns the month from a timestamp
 	return int(datetime.datetime.fromtimestamp(t).strftime('%H'))
