@@ -2,85 +2,84 @@
 # -*- coding: utf-8 -*-
 ##############################################################################
 # WeatherStats
-# A tiny Python script for weather data management and analysis
-# (C) 2015, Ulrich Thiel
+# Tiny Python scripts for general weather data management and analysis (with Netatmo support)
+# (C) 2015-2016, Ulrich Thiel
 # thiel@mathematik.uni-stuttgart.de
 ##############################################################################
 
+##############################################################################
+#This file contains some functions to convert timestamps to usual date formats and conversely
 
 import datetime
 import calendar
 import time
 
-##############################################################################
-#some timestamp helper functions	
+#Returns the date in format Y-m-d from a timestamp
 def DateFromTimestamp(t):
-	#Returns the date in format Y-m-d from a timestamp
 	return datetime.datetime.fromtimestamp(t).strftime('%Y-%m-%d')
 	
-#some timestamp helper functions	
+#Returns the datetime in format Y-m-d H:M
 def DatetimeFromTimestamp(t):
-	#Returns the datetime in format Y-m-d H:M
 	return datetime.datetime.fromtimestamp(t).strftime('%Y-%m-%d %H:%M')
 	
+#Returns the day in format Y-m-d from a timestamp
 def DateAndHourFromTimestamp(t):
-	#Returns the day in format Y-m-d from a timestamp
 	return datetime.datetime.fromtimestamp(t).strftime('%Y-%m-%d %Hh')
 	
+#Returns the minute from a timestamp
 def MinuteFromTimestamp(t):
-	#Returns the minute from a timestamp
 	return int(datetime.datetime.fromtimestamp(t).strftime('%M'))
 
+#Returns the second from a timestamp
 def SecondFromTimestamp(t):
-	#Returns the second from a timestamp
 	return int(datetime.datetime.fromtimestamp(t).strftime('%S'))
 		
+#Returns the month from a timestamp
 def HourFromTimestamp(t):
-	#Returns the month from a timestamp
 	return int(datetime.datetime.fromtimestamp(t).strftime('%H'))
 	
+#Returns the month from a timestamp
 def DayFromTimestamp(t):
-	#Returns the month from a timestamp
 	return int(datetime.datetime.fromtimestamp(t).strftime('%d'))
 
+#Returns the month from a timestamp
 def MonthFromTimestamp(t):
-	#Returns the month from a timestamp
 	return int(datetime.datetime.fromtimestamp(t).strftime('%m'))
 	
+#Returns the month from a timestamp
 def YearFromTimestamp(t):
-	#Returns the month from a timestamp
 	return int(datetime.datetime.fromtimestamp(t).strftime('%Y'))
 
+#Returns first timestamp of date s (s in format Y-m-d)
 def FirstTimestampOfDate(s):
-	#Returns first timestamp of date s (s in format Y-m-d)
 	return time.mktime(datetime.datetime.strptime(s, "%Y-%m-%d").timetuple())
 	
+#Returns last timestamp of date s (s in format Y-m-d)
 def LastTimestampOfDate(s):
-	#Returns last timestamp of date s (s in format Y-m-d)
 	return time.mktime((datetime.datetime.strptime(s, "%Y-%m-%d") + datetime.timedelta(1)).timetuple() )
 	
+#Returns first timestamp of year s
 def FirstTimestampOfYear(s):
-	#Returns first timestamp of year s
 	return FirstTimestampOfDate(s+"-01-01")
 	
+#Returns last timestamp of year s
 def LastTimestampOfYear(s):
-	#Returns last timestamp of year s
 	return LastTimestampOfDate(s+"-12-31")
 	
+#Returns first timestamp of month m of year y
 def FirstTimestampOfMonth(y,m):
-	#Returns first timestamp of month m of year y
 	return FirstTimestampOfDate(str(y)+"-"+str(m)+"-01")
 
+#Returns last date of month m of year y
 def LastDayOfMonth(y,m):
-	#Returns last date of month m of year y
 	return calendar.monthrange(y,m)[1]
 	
+#Returns first timestamp of month m of year y
 def LastTimestampOfMonth(y,m):
-	#Returns first timestamp of month m of year y
 	return LastTimestampOfDate(str(y)+"-"+str(m)+"-"+str(LastDayOfMonth(y,m)))
 		
+#Returns first timestamp of date s (s in format Y-m-d H:m)
 def TimestampOfDatetime(s):
-	#Returns first timestamp of date s (s in format Y-m-d H:m)
 	return time.mktime(datetime.datetime.strptime(s, "%Y-%m-%d %H:%M").timetuple())
 
 
