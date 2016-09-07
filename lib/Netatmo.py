@@ -24,6 +24,7 @@ else:
     
 
 import pprint
+import ColorPrint
 
 ##############################################################################
 #Retrieves the device data for an account in JSON format
@@ -37,7 +38,11 @@ def postRequest(url, params):
         params = urlencode(params)
         headers = {"Content-Type" : "application/x-www-form-urlencoded;charset=utf-8"}
         req = urllib2.Request(url=url, data=params, headers=headers)
-        resp = urllib2.urlopen(req).read()
+        try:
+        	resp = urllib2.urlopen(req).read()
+        except urllib2.HTTPError, e: 
+			ColorPrint.ColorPrint("Connection error. Check credentials.", "error")
+			sys.exit(1)
     return json.loads(resp)
     
 
@@ -68,8 +73,9 @@ class NetatmoClient:
                 "password" : password,
                 "scope" : "read_station"
                 }
-                       
+		                 
 		resp = postRequest(self.AUTH_REQ, postParams)
+		
 		self.accessToken = resp['access_token']
 		self.refreshToken = resp['refresh_token']
 		self.scope = resp['scope']
@@ -92,16 +98,34 @@ class NetatmoClient:
 			self.refreshToken = resp['refresh_token']
 			self.expiration = int(resp['expire_in'] + time.time())
 			
-	def getDeviceList(self):
-		
+			self.getStationData()
+			
+	def getStationData(self):
 		self.refreshAccessToken()	#will only do if necessary
 		postParams = {"access_token" : self.accessToken}
 		resp = postRequest(self.GETSTATION_REQ, postParams)
 		raw = resp['body']
-		self.deviceList = raw['devices']
-		print pprint.pprint(resp)
-        
-        
-netatm = NetatmoClient("globalproj@gmx.net", "JKvser4", "56c0990d65d1c4e1a3b08f4a", "3wA2Vf64jEK06LOtZLbA6Krlv0NIHDq")
-
-netatm.getDeviceList()
+		
+		#collect sensors of all modules
+		sensors = []
+		for device in raw['devices']:
+			location = device['place']['location']
+			alt = device['place']['altitude']
+			timezone = device['place']['timezone']
+			
+			#sensors of base station
+			id = device['_id']
+			name = device['module_name']
+			for sensor in device['data_type']:
+				sensordict = {"Measurand":sensor, "Timezone":timezone, "Elevation":alt, "LocationName":name, "NetatmoModule":id, "Location":location}
+				sensors.append(sensordict)
+				
+			#sensors of modules
+			for module in device['modules']:
+				id = module['_id']
+				name = module['module_name']
+				for sensor in module['data_type']:
+					sensordict = {"Measurand":sensor, "Timezone":timezone, "Elevation":alt, "LocationName":name, "NetatmoModule":id, "Location":location}
+					sensors.append(sensordict)
+				
+		self.sensors = sensors
