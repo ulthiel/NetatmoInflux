@@ -41,8 +41,13 @@ def UpdateNetatmoForAccount(account):
 			res = (dbcursor.execute("SELECT COUNT(*) FROM NetatmoModules WHERE NetatmoDeviceId IS \""+str(id[0])+"\" AND NetatmoModuleId IS NULL").fetchone())[0]
 		else:
 			res = (dbcursor.execute("SELECT COUNT(*) FROM NetatmoModules WHERE NetatmoDeviceId IS \""+str(id[0])+"\" AND NetatmoModuleId IS \""+id[1]+"\"").fetchone())[0]
+		#if not exists, add new device/module and its sensors
 		if res is None or res == 0:
-			print netatm.locations[id]
+			ColorPrint.ColorPrint("Adding new device module with id ("+(id[0])+","+id[1]+")", "okblue")
+			#check if location exists
+			location = netatm.locations[id]
+			#res = (dbcursor.execute("SELECT COUNT(*) FROM Locations WHERE PositionNorth IS "+str(location[0][1])+" AND PositionEast IS "+id[1]+"\"").fetchone())[0]
+			
 
 #	for sensor in netatm.sensors:
 #		dbcursor.execute("SELECT ID From Locations WHERE PositionNorth IS " + str(sensor['Location'][1]) + " AND PositionEast IS " + str(sensor['Location'][0]) + " AND Elevation IS " + str(sensor['Elevation']) + " AND NetatmoName IS \"" + sensor['LocationName'] + "\"")
