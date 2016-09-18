@@ -35,6 +35,15 @@ def UpdateNetatmoForAccount(account):
 	netatm = Netatmo.NetatmoClient(username, password, clientId, clientSecret)
 	netatm.getStationData()
 	
+	#first, update modules and sensors
+	for id in netatm.devicemoduleids:
+		if id[1] == None:
+			res = (dbcursor.execute("SELECT COUNT(*) FROM NetatmoModules WHERE NetatmoDeviceId IS \""+str(id[0])+"\" AND NetatmoModuleId IS NULL").fetchone())[0]
+		else:
+			res = (dbcursor.execute("SELECT COUNT(*) FROM NetatmoModules WHERE NetatmoDeviceId IS \""+str(id[0])+"\" AND NetatmoModuleId IS \""+id[1]+"\"").fetchone())[0]
+		if res is None or res == 0:
+			print netatm.locations[id]
+
 #	for sensor in netatm.sensors:
 #		dbcursor.execute("SELECT ID From Locations WHERE PositionNorth IS " + str(sensor['Location'][1]) + " AND PositionEast IS " + str(sensor['Location'][0]) + " AND Elevation IS " + str(sensor['Elevation']) + " AND NetatmoName IS \"" + sensor['LocationName'] + "\"")
 #		res = dbcursor.fetchall()
@@ -57,7 +66,7 @@ def UpdateNetatmoForAccount(account):
 #Update Netatmo 
 def UpdateNetatmo():
 	
-	dbcursor.execute("SELECT * From Netatmo")
+	dbcursor.execute("SELECT * From NetatmoAccounts")
 	res = dbcursor.fetchall()
 	for account in res:
 		UpdateNetatmoForAccount(account)

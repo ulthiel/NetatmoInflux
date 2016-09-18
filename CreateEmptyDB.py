@@ -89,9 +89,10 @@ def CreateEmptyDB():
 	
 	dbcursor.execute(\
 		"CREATE TABLE \"NetatmoModules\" (\n" \
-		"`NetatmoModuleId` Text,\n" \
-		"`ModuleId` INTEGER\n" \
-		")"\
+		"`NetatmoDeviceId` TEXT,\n" \
+		"`NetatmoModuleId` TEXT,\n" \
+		"`ModuleId` INTEGER,\n" \
+		"PRIMARY KEY(NetatmoDeviceId,NetatmoModuleId) ON CONFLICT REPLACE)"\
 	)
 	
 	dbconn.commit()

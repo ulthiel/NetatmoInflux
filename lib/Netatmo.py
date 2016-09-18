@@ -106,26 +106,32 @@ class NetatmoClient:
 		resp = postRequest(self.GETSTATION_REQ, postParams)
 		raw = resp['body']
 		
-		#collect sensors of all modules
-		sensors = []
+		#collect information about all devices and all modules
+		devicemoduleids = []
+		measurands = dict()
+		locations = dict()		
 		for device in raw['devices']:
 			location = device['place']['location']
 			alt = device['place']['altitude']
 			timezone = device['place']['timezone']
 			
 			#sensors of base station
-			id = device['_id']
+			deviceid = device['_id']
+			id = (deviceid,None)
+			devicemoduleids.append(id)
 			name = device['module_name']
-			for sensor in device['data_type']:
-				sensordict = {"Measurand":sensor, "Timezone":timezone, "Elevation":alt, "LocationName":name, "NetatmoModule":id, "Location":location}
-				sensors.append(sensordict)
-				
+			measurands[id] = device['data_type']
+			locations[id] = (location,alt,timezone,name)
+			
 			#sensors of modules
 			for module in device['modules']:
-				id = module['_id']
+				moduleid = module['_id']
+				id = (deviceid,moduleid)
+				devicemoduleids.append(id)
+				measurands[id] = module['data_type']
 				name = module['module_name']
-				for sensor in module['data_type']:
-					sensordict = {"Measurand":sensor, "Timezone":timezone, "Elevation":alt, "LocationName":name, "NetatmoModule":id, "Location":location}
-					sensors.append(sensordict)
+				locations[id] = (location,alt,timezone,name)
 				
-		self.sensors = sensors
+		self.devicemoduleids = devicemoduleids
+		self.measurands = measurands
+		self.locations = locations

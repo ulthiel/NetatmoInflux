@@ -16,32 +16,29 @@ from lib import ColorPrint
 from lib import Netatmo
 import getpass
 
-#Add Netatmo account
-def AddNetatmo():
-	username = raw_input("User: ")
-	password = getpass.getpass()
-	ColorPrint.ColorPrint("Do you want to save the password as clear text to the database?\nIf not, you have to enter it on any update.", "warning")
-	savepassw = raw_input("Save? (y/n) ")
-	if not (savepassw == "Y" or savepassw == "y"):
-		password = ""
-	ColorPrint.ColorPrint("You have to grant client access for WeatherStats. If not done yet,\ngo to https://dev.netatmo.com/dev/myaccount and add an app. You will\nbe presented a client id and a client secret.", "warning")
-	clientId = raw_input("Client id: ")
-	clientSecret = raw_input("Client secret: ")
+username = raw_input("User: ")
+password = getpass.getpass()
+ColorPrint.ColorPrint("Do you want to save the password as clear text to the database?\nIf not, you have to enter it on any update.", "warning")
+savepassw = raw_input("Save? (y/n) ")
+if not (savepassw == "Y" or savepassw == "y"):
+	password = ""
+ColorPrint.ColorPrint("You have to grant client access for WeatherStats. If not done yet,\ngo to https://dev.netatmo.com/dev/myaccount and add an app. You will\nbe presented a client id and a client secret.", "warning")
+clientId = raw_input("Client id: ")
+clientSecret = raw_input("Client secret: ")
 	
-	dbconn = sqlite3.connect('Weather.db')
-	dbcursor = dbconn.cursor()
+dbconn = sqlite3.connect('Weather.db')
+dbcursor = dbconn.cursor()
 	
-	dbcursor.execute(\
-		"INSERT INTO Netatmo (User, Password, ClientID, ClientSecret)\n"\
-		"VALUES (\"" + username + "\",\"" + password + "\",\"" + clientId + "\",\"" + clientSecret + "\")"
-	)
+dbcursor.execute(\
+	"INSERT INTO NetatmoAccounts (User, Password, ClientID, ClientSecret)\n"\
+	"VALUES (\"" + username + "\",\"" + password + "\",\"" + clientId + "\",\"" + clientSecret + "\")"
+)
 	
-	#check if it works
-	netatm = Netatmo.NetatmoClient(username, password, clientId, clientSecret)
-	netatm.getStationData()
+#check if it works
+netatm = Netatmo.NetatmoClient(username, password, clientId, clientSecret)
+netatm.getStationData()
 	
-	ColorPrint.ColorPrint("Account added", "okgreen")
-	
-AddNetatmo()
+ColorPrint.ColorPrint("Account added", "okgreen")
+
 dbconn.commit()
 dbconn.close()
