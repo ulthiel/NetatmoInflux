@@ -46,7 +46,8 @@ def CreateEmptyDB():
 	dbcursor.execute(\
 		"CREATE TABLE \"Sensors\" (\n" \
 		"`Id` INTEGER,\n" \
-		"`Measurand` INTEGER,\n" \
+		"`Measurand` TEXT,\n" \
+		"`Unit` TEXT,\n" \
 		"`Description` TEXT,\n" \
 		"`Calibration` NUMERIC,\n" \
 		"PRIMARY KEY(Id))\n" \
@@ -64,7 +65,7 @@ def CreateEmptyDB():
 		"`ModuleId` INTEGER,\n" \
 		"`BeginTimestamp` INTEGER,\n" \
 		"`EndTimestamp` TEXT,\n" \
-		"`LocationId` NUMERIC)\n" \
+		"`LocationId` INTEGER)\n" \
 	)
 	
 	dbcursor.execute(\

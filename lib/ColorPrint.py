@@ -32,7 +32,7 @@ def ColorPrintString(msg, type):
 	else:	
 		raise Exception('Message type not found')
 		
-	return colstr + str(msg) + bcolors.ENDC 
+	return colstr + msg + bcolors.ENDC 
 	
 def ColorPrint(msg, type):
 	print ColorPrintString(msg, type)

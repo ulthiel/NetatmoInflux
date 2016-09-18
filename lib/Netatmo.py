@@ -109,7 +109,13 @@ class NetatmoClient:
 		#collect information about all devices and all modules
 		devicemoduleids = []
 		measurands = dict()
-		locations = dict()		
+		locations = dict()
+		unit = raw['user']['administrative']['unit']
+		units = dict()
+		windunit = raw['user']['administrative']['windunit']
+		windunits = dict()
+		pressureunit = raw['user']['administrative']['pressureunit']
+		pressureunits = dict()		
 		for device in raw['devices']:
 			location = device['place']['location']
 			alt = device['place']['altitude']
@@ -119,9 +125,12 @@ class NetatmoClient:
 			deviceid = device['_id']
 			id = (deviceid,None)
 			devicemoduleids.append(id)
-			name = device['module_name']
+			name = device['station_name']+", "+device['module_name']
 			measurands[id] = device['data_type']
 			locations[id] = (location,alt,timezone,name)
+			units[id] = unit
+			windunits[id] = windunit
+			pressureunits[id] = pressureunit
 			
 			#sensors of modules
 			for module in device['modules']:
@@ -129,9 +138,23 @@ class NetatmoClient:
 				id = (deviceid,moduleid)
 				devicemoduleids.append(id)
 				measurands[id] = module['data_type']
-				name = module['module_name']
+				name = device['station_name']+", "+module['module_name']
 				locations[id] = (location,alt,timezone,name)
+				units[id] = unit
+				windunits[id] = windunit
+				pressureunits[id] = pressureunits
 				
 		self.devicemoduleids = devicemoduleids
 		self.measurands = measurands
 		self.locations = locations
+		self.units = units
+		self.windunits = windunits
+		self.pressureunits = pressureunits
+		
+	def getMeasure(device_id,module_id,scale,type,date_begin,date_end,limit,optimize):
+		self.refreshAccessToken()	#will only do if necessary
+		postParams = {"access_token" : self.accessToken, "device_id" : device_id, "module_id":module_id, "scale":scale, "type":type, "date_begin":date_begin, "date_end":date_end, "limit":limit, "optimize":optimize}
+		resp = postRequest(self.GETMEASURE_REQ, postParams)
+		raw = resp['body']
+		
+		print raw
