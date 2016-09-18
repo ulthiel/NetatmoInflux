@@ -35,44 +35,63 @@ def CreateEmptyDB():
 		"PRIMARY KEY(Timestamp,Sensor) ON CONFLICT REPLACE)"\
 	)
 	
-	dbcursor.execute(\
-		"CREATE TABLE \"Measurands\" (\n" \
-		"`ID` INTEGER,\n" \
-		"`Measurand` TEXT,\n" \
-		"`Unit` TEXT,\n" \
-		"PRIMARY KEY(ID))\n" \
-	)
+#	dbcursor.execute(\
+#		"CREATE TABLE \"Measurands\" (\n" \
+#		"`Id` INTEGER,\n" \
+#		"`Measurand` TEXT,\n" \
+#		"`Unit` TEXT,\n" \
+#		"PRIMARY KEY(Id))\n" \
+#	)
 	
 	dbcursor.execute(\
 		"CREATE TABLE \"Sensors\" (\n" \
-		"`ID` INTEGER,\n" \
-		"`Location` INTEGER,\n" \
+		"`Id` INTEGER,\n" \
 		"`Measurand` INTEGER,\n" \
-		"`Sensor` TEXT,\n" \
+		"`Description` TEXT,\n" \
 		"`Calibration` NUMERIC,\n" \
-		"`NetatmoAccountID` TEXT,\n" \
-		"`NetatmoModuleID` TEXT,\n" \
-		"PRIMARY KEY(ID))\n" \
+		"PRIMARY KEY(Id))\n" \
+	)
+	
+	dbcursor.execute(\
+		"CREATE TABLE \"Modules\" (\n" \
+		"`Id` INTEGER,\n" \
+		"`SensorIds` TEXT,\n" \
+		"PRIMARY KEY(Id))\n" \
+	)
+	
+	dbcursor.execute(\
+		"CREATE TABLE \"ModuleLocations\" (\n" \
+		"`ModuleId` INTEGER,\n" \
+		"`BeginTimestamp` INTEGER,\n" \
+		"`EndTimestamp` TEXT,\n" \
+		"`LocationId` NUMERIC)\n" \
 	)
 	
 	dbcursor.execute(\
 		"CREATE TABLE \"Locations\" (\n" \
-		"`ID` INTEGER,\n" \
+		"`Id` INTEGER,\n" \
 		"`PositionNorth` NUMERIC,\n" \
 		"`PositionEast` NUMERIC,\n" \
 		"`Elevation` NUMERIC,\n" \
 		"`Description` TEXT,\n" \
 		"`Timezone` TEXT,\n" \
-		"PRIMARY KEY(ID))\n" \
+		"PRIMARY KEY(Id))\n" \
 	)
 	
 	dbcursor.execute(\
-		"CREATE TABLE \"Netatmo\" (\n" \
+		"CREATE TABLE \"NetatmoAccounts\" (\n" \
 		"`User` TEXT,\n" \
 		"`Password` TEXT,\n" \
 		"`ClientID` TEXT,\n" \
 		"`ClientSecret` TEXT,\n" \
 		"PRIMARY KEY(User) ON CONFLICT REPLACE)"\
+	)
+	
+	dbcursor.execute(\
+		"CREATE TABLE \"NetatmoModules\" (\n" \
+		"`NetatmoModuleId` Text,\n" \
+		"`ModuleId` INTEGER\n" \
+		")"\
 	)
 	
 	dbconn.commit()
@@ -81,5 +100,6 @@ def CreateEmptyDB():
 #First, check if database exists and create empty one if not
 if not os.path.isfile("Weather.db"):
 	CreateEmptyDB()
+	ColorPrint.ColorPrint("New database created", "okgreen")
 else:
 	ColorPrint.ColorPrint("Database exists already", "error")
