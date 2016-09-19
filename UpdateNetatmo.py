@@ -151,28 +151,38 @@ def UpdateNetatmoForAccount(account):
 			mt = dbcursor.execute("SELECT MAX(Timestamp) FROM Data WHERE Sensor IS "+str(sensorid)).fetchone()[0]
 			if mt != None and mt < maxtimestamp:
 				maxtimestamp = mt
+				
+		if maxtimestamp == 0:
+			#get minimal timestamp for device/module from server
+			data = netatm.getMeasure(id[0],id[1],"max",measurandsstring,None,None,None,"false")
+			maxtimestamp = min(map(int,data.keys()))
+			
+		print "    Will retrieve data from "+DateHelper.DateFromTimestamp(maxtimestamp,None)+" to now"
 			
 		date_end = currenttime
-		count = 0
+		timestampcounter = 0
+			
 		while date_end > maxtimestamp:
 			date_begin = date_end - 1024*5*60 #this is a bit ugly. netatmo resolution is one data point every 5 minutes. we can retrieve at most 1024 data points per request. this is where this number comes from. on demand measurements may be missing but this should be fine
-			sys.stdout.write('\r' + '\tRetrieving data in range '+DateHelper.DateFromTimestamp(date_begin,None)+' to '+DateHelper.DateFromTimestamp(date_end,None)) #timezone doesn't matter here for status message
+			sys.stdout.write('\r' + '    Retrieving data in range '+DateHelper.DateFromTimestamp(date_begin,None)+' to '+DateHelper.DateFromTimestamp(date_end,None)) #timezone doesn't matter here for status message
 			sys.stdout.flush()
 			data = netatm.getMeasure(id[0],id[1],"max",measurandsstring,date_begin,date_end,None,"false")
-			count = count + len(data)
+			timestampcounter = timestampcounter + len(data)
 			date_end = date_begin-1
 				
 			for timestamp in data.keys():
 				for i in range(0,len(sensorids)):
 					sensorid = sensorids[i]
-					dbcursor.execute("INSERT INTO Data (Timestamp,Sensor,Value) VALUES ("+str(timestamp)+","+str(sensorid)+","+str(data[timestamp][i])+")")
+					if data[timestamp][i] != None:
+						dbcursor.execute("INSERT INTO Data (Timestamp,Sensor,Value) VALUES ("+str(timestamp)+","+str(sensorid)+","+str(data[timestamp][i])+")")
 			
-			dbconn.commit()
-				
-			if len(data) == 0:
-				break
-			
-		print "\tData for "+str(count)+" time stamps received"
+				dbconn.commit()
+
+		sys.stdout.write('\n')
+		sys.stdout.flush()
+		print "    Done"
+		print "    Data for "+str(timestampcounter)+" time stamps received"
+
 	
 #Update Netatmo 
 def UpdateNetatmo():

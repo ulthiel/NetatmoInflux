@@ -26,12 +26,12 @@ def CreateEmptyDB():
 		"`Timestamp` INTEGER,\n" \
 		"`Sensor` INTEGER,\n" \
 		"`Value` REAL,\n" \
-		#"`Year` INTEGER,\n" \
-		#"`Month` INTEGER,\n" \
-		#"`Day` INTEGER,\n" \
-		#"`Hour` INTEGER,\n" \
-		#"`Minute` INTEGER,\n" \
-		#"`Second` INTEGER,\n" \
+		"`Year` INTEGER,\n" \
+		"`Month` INTEGER,\n" \
+		"`Day` INTEGER,\n" \
+		"`Hour` INTEGER,\n" \
+		"`Minute` INTEGER,\n" \
+		"`Second` INTEGER,\n" \
 		"PRIMARY KEY(Timestamp,Sensor) ON CONFLICT REPLACE)"\
 	)
 	

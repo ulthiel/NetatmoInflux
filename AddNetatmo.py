@@ -22,7 +22,7 @@ ColorPrint.ColorPrint("Do you want to save the password as clear text to the dat
 savepassw = raw_input("Save? (y/n) ")
 if not (savepassw == "Y" or savepassw == "y"):
 	password = ""
-ColorPrint.ColorPrint("You have to grant client access for WeatherStats. If not done yet,\ngo to https://dev.netatmo.com/dev/myaccount and add an app. You will\nbe presented a client id and a client secret.", "warning")
+ColorPrint.ColorPrint("You have to grant client access for WeatherStats. If not done yet,\nlog into https://dev.netatmo.com/dev/myaccount and add an app. You will\nbe presented a client id and a client secret.", "warning")
 clientId = raw_input("Client id: ")
 clientSecret = raw_input("Client secret: ")
 	
