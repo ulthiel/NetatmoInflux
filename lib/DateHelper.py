@@ -13,10 +13,17 @@
 import datetime
 import calendar
 import time
+from pytz import timezone
 
-#Returns the date in format Y-m-d from a timestamp
-def DateFromTimestamp(t):
-	return datetime.datetime.fromtimestamp(t).strftime('%Y-%m-%d')
+#Current timestamp 
+def CurrentTimestamp():
+	return int(time.time())
+
+#Returns the date in format Y-m-d from a timestamp 
+def DateFromTimestamp(t,tz):
+	if tz != None:
+		tz = timezone(tz)
+	return datetime.datetime.fromtimestamp(t,tz).strftime('%Y-%m-%d')
 	
 #Returns the datetime in format Y-m-d H:M
 def DatetimeFromTimestamp(t):

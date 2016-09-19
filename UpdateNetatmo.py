@@ -12,9 +12,11 @@
 
 import sqlite3
 import os.path
+import sys
 from lib import ColorPrint
 from lib import Netatmo
 import getpass
+from lib import DateHelper
 
 
 dbconn = sqlite3.connect('Weather.db')
@@ -126,35 +128,51 @@ def UpdateNetatmoForAccount(account):
 			moduleid = moduleid[0]
 			
 		#now, update data
-		currenttime = 
+		currenttime = DateHelper.CurrentTimestamp()
 		res = dbcursor.execute("SELECT SensorIds FROM Modules WHERE Id IS "+str(moduleid)).fetchone()[0]
 		sensorids = map(int, res.split(','))
-		for i in sensorids:
-			measurand = dbcursor.execute("SELECT Measurand FROM Sensors WHERE Id IS "+str(i)).fetchone()[0]
-			maxtimestamp = dbcursor.execute("SELECT MAX(Timestamp) FROM Data WHERE Sensor IS "+str(i)).fetchone()[0]
+		measurands = []
+		for sensorid in sensorids:
+			measurands.append(dbcursor.execute("SELECT Measurand FROM Sensors WHERE Id IS "+str(sensorid)).fetchone()[0])
+		measurandsstring = ""
+		for i in range(0,len(measurands)):
+			measurandsstring = measurandsstring + measurands[i]
+			if i < len(measurands)-1:
+				measurandsstring = measurandsstring + ","
+				
+		if id[1] == None:
+			print "Updating data for device "+id[0]
+		else:
+			print "Updating data for module "+id[1]+" of device "+id[0]
 			
+		#find last timestamp among all sensors (this is the minimal point up to which we have to update data)
+		maxtimestamp = 0
+		for sensorid in sensorids:
+			mt = dbcursor.execute("SELECT MAX(Timestamp) FROM Data WHERE Sensor IS "+str(sensorid)).fetchone()[0]
+			if mt != None and mt < maxtimestamp:
+				maxtimestamp = mt
 			
-		
-		
-
-#	for sensor in netatm.sensors:
-#		dbcursor.execute("SELECT ID From Locations WHERE PositionNorth IS " + str(sensor['Location'][1]) + " AND PositionEast IS " + str(sensor['Location'][0]) + " AND Elevation IS " + str(sensor['Elevation']) + " AND NetatmoName IS \"" + sensor['LocationName'] + "\"")
-#		res = dbcursor.fetchall()
-#		if len(res) == 0:
-#			dbcursor.execute("INSERT INTO Locations (PositionNorth, PositionEast, Elevation, Description, NetatmoName, Timezone) VALUES (" + str(sensor['Location'][1]) + "," + str(sensor['Location'][0]) + "," + str(sensor['Elevation']) + ",\"" + sensor['LocationName'] + "\", \"" + sensor['LocationName'] + "\",\"" + sensor['Timezone'] + "\")")
+		date_end = currenttime
+		count = 0
+		while date_end > maxtimestamp:
+			date_begin = date_end - 1024*5*60 #this is a bit ugly. netatmo resolution is one data point every 5 minutes. we can retrieve at most 1024 data points per request. this is where this number comes from. on demand measurements may be missing but this should be fine
+			sys.stdout.write('\r' + '\tRetrieving data in range '+DateHelper.DateFromTimestamp(date_begin,None)+' to '+DateHelper.DateFromTimestamp(date_end,None)) #timezone doesn't matter here for status message
+			sys.stdout.flush()
+			data = netatm.getMeasure(id[0],id[1],"max",measurandsstring,date_begin,date_end,None,"false")
+			count = count + len(data)
+			date_end = date_begin-1
+				
+			for timestamp in data.keys():
+				for i in range(0,len(sensorids)):
+					sensorid = sensorids[i]
+					dbcursor.execute("INSERT INTO Data (Timestamp,Sensor,Value) VALUES ("+str(timestamp)+","+str(sensorid)+","+str(data[timestamp][i])+")")
 			
-			#get location id
-#			dbcursor.execute("SELECT ID From Locations WHERE PositionNorth IS " + str(sensor['Location'][1]) + " AND PositionEast IS " + str(sensor['Location'][0]) + " AND Elevation IS " + str(sensor['Elevation']) + " AND NetatmoName IS \"" + sensor['LocationName'] + "\"")
-#			locationid = dbcursor.fetchall()[0]
+			dbconn.commit()
+				
+			if len(data) == 0:
+				break
 			
-#			print "Adding new location \"" + sensor['LocationName'] + "\" with ID " + str(locationid)
-			
-#		elif len(res) == 1:
-#			locationid = res[0][0]
-			
-#		else:
-#			ColorPrint.ColorPrint("Multiple matching locations for " + sensor['Measurand'] + " sensor in module " + senor['NetatmoModule'] + " found: "+str(res), "warning")
-#			locationid = raw_input("Correct location ID: ")
+		print "\tData for "+str(count)+" time stamps received"
 	
 #Update Netatmo 
 def UpdateNetatmo():

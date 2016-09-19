@@ -41,7 +41,7 @@ def postRequest(url, params):
         try:
         	resp = urllib2.urlopen(req).read()
         except urllib2.HTTPError, e: 
-			ColorPrint.ColorPrint("Connection error. Check credentials.", "error")
+			ColorPrint.ColorPrint(str(e), "error")
 			sys.exit(1)
     return json.loads(resp)
     
@@ -151,10 +151,18 @@ class NetatmoClient:
 		self.windunits = windunits
 		self.pressureunits = pressureunits
 		
-	def getMeasure(device_id,module_id,scale,type,date_begin,date_end,limit,optimize):
+	def getMeasure(self,device_id,module_id,scale,type,date_begin,date_end,limit,optimize):
 		self.refreshAccessToken()	#will only do if necessary
-		postParams = {"access_token" : self.accessToken, "device_id" : device_id, "module_id":module_id, "scale":scale, "type":type, "date_begin":date_begin, "date_end":date_end, "limit":limit, "optimize":optimize}
+		postParams = {"access_token" : self.accessToken, "device_id" : device_id, "scale":scale, "type":type}
+		if module_id != None:
+			postParams['module_id'] = module_id
+		if date_begin != None:
+			postParams['date_begin'] = str(date_begin)
+		if date_end != None:
+			postParams['date_end'] = str(date_end)
+		if limit != None:
+			postParams['limit'] = str(limit)
+		if optimize != None:
+			postParams['optimize'] = optimize
 		resp = postRequest(self.GETMEASURE_REQ, postParams)
-		raw = resp['body']
-		
-		print raw
+		return resp['body']
