@@ -12,13 +12,11 @@
 
 import sqlite3
 import os.path
-import sys
 from lib import ColorPrint
 from lib import Netatmo
 import getpass
 from lib import DateHelper
-import progressbar
-
+from lib import Tools
 
 dbconn = sqlite3.connect('Weather.db')
 dbcursor = dbconn.cursor()
@@ -142,46 +140,52 @@ def UpdateNetatmoForAccount(account):
 				measurandsstring = measurandsstring + ","
 				
 		if id[1] == None:
-			print "Updating data for device "+id[0]
+			print "  Updating data for device "+id[0]
 		else:
-			print "Updating data for module "+id[1]+" of device "+id[0]
+			print "  Updating data for module "+id[1]+" of device "+id[0]
 			
 		#find last timestamp among all sensors (this is the minimal point up to which we have to update data)
-		maxtimestamp = 0
+		maxtimestamp = None
 		for sensorid in sensorids:
 			mt = dbcursor.execute("SELECT MAX(Timestamp) FROM Data WHERE Sensor IS "+str(sensorid)).fetchone()[0]
-			if mt != None and mt < maxtimestamp:
+			if mt != None and (maxtimestamp == None or mt < maxtimestamp): #< is correct here
 				maxtimestamp = mt
 				
-		if maxtimestamp == 0:
-			#get minimal timestamp for device/module from server
+		if maxtimestamp == None:
+			#get maximal timestamp for device/module from server
 			data = netatm.getMeasure(id[0],id[1],"max",measurandsstring,None,None,None,"false")
 			maxtimestamp = min(map(int,data.keys()))
 			
-		print "    Will retrieve data from "+DateHelper.DateFromTimestamp(maxtimestamp,None)+" to now"
+		Tools.PrintWithoutNewline("    Retrieving data from "+DateHelper.DateFromTimestamp(maxtimestamp,None)+" to now: 0%  ")
 			
-		date_end = currenttime
+		date_begin = maxtimestamp
+		date_end = maxtimestamp + 1 #will be modified soon
 		timestampcounter = 0 #will count number of retrieved timestamps
-		bar = progressbar.ProgressBar(widgets=[progressbar.SimpleProgress()],max_value=currenttime-maxtimestamp,).start()
-		while date_end > maxtimestamp:
-			date_begin = date_end - 1024*5*60 #this is a bit ugly. netatmo resolution is one data point every 5 minutes. we can retrieve at most 1024 data points per request. this is where this number comes from. on demand measurements may be missing but this should be fine
-			#sys.stdout.write('\r' + '    Retrieving data in range '+DateHelper.DateFromTimestamp(date_begin,None)+' to '+DateHelper.DateFromTimestamp(date_end,None)) #timezone doesn't matter here for status message
-			#sys.stdout.flush()
-			data = netatm.getMeasure(id[0],id[1],"max",measurandsstring,date_begin,date_end,None,"false")
-			timestampcounter = timestampcounter + len(data)
-			date_end = date_begin-1
-			bar.update(currenttime-date_end)
-			
-			for timestamp in data.keys():
-				for i in range(0,len(sensorids)):
-					sensorid = sensorids[i]
-					if data[timestamp][i] != None:
-						dbcursor.execute("INSERT INTO Data (Timestamp,Sensor,Value) VALUES ("+str(timestamp)+","+str(sensorid)+","+str(data[timestamp][i])+")")
-			
-				dbconn.commit()
+		datapointcounter = 0 #will count number of datapoints
+		maxval=currenttime-maxtimestamp #for progress bar
+		while date_end < currenttime:
+			date_end = min(currenttime,date_begin + 1000*5*60) #this is a bit ugly. netatmo resolution is one data point every 5 minutes. we can retrieve at most 1024 data points per request. so this is a block of 85.3 hours. now, there might be some on additional on demand measurements in this time window, this is why I used 1000 instead of 1024 above. by design, there will be no duplicates in the database, so this should be fine. this only causes a bit more traffic (and of course we might miss some on demand measurements if there are more than 24 within the 85.3 hour time window (but who's doing this anyways? moreover, for weather statistics it doesn't really matter if we miss a point between the two five minute ones!)).
 
-		bar.finish()
-		ColorPrint.ColorPrint("    Done. Data for "+str(timestampcounter)+" time stamps received", "okblue")
+			data = netatm.getMeasure(id[0],id[1],"max",measurandsstring,date_begin,date_end,None,"false") #retrieves 1024 entries
+			
+			timestampcounter = timestampcounter + len(data)
+			date_begin = date_end+1
+			
+			Tools.PrintWithoutNewline("    Retrieving data from "+DateHelper.DateFromTimestamp(maxtimestamp,None)+" to now: "+str(int((float(date_end)-float(maxtimestamp))/float(maxval)*100.0))+'%  ')
+			
+			if len(data) != 0: #might be empty in case there is no data in this time window. we shouldn't break here though since there might still be earlier data
+				for timestamp in data.keys():
+					for i in range(0,len(sensorids)):
+						sensorid = sensorids[i]
+						if data[timestamp][i] != None:
+							dbcursor.execute("INSERT INTO Data (Timestamp,Sensor,Value) VALUES ("+str(timestamp)+","+str(sensorid)+","+str(data[timestamp][i])+")")
+							datapointcounter = datapointcounter + 1
+			
+					dbconn.commit()
+
+		Tools.PrintWithoutNewline("    Retrieving data from "+DateHelper.DateFromTimestamp(maxtimestamp,None)+" to now: 100%  ")
+		print ""
+		ColorPrint.ColorPrint("    Done. Data for "+str(timestampcounter)+" timestamps received (total number of data points: "+str(datapointcounter)+")", "okblue")
 
 	
 #Update Netatmo 
