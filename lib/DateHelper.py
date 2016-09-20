@@ -15,48 +15,48 @@ import calendar
 import time
 from pytz import timezone
 
-#Current timestamp 
+#Current timestamp
 def CurrentTimestamp():
 	return int(time.time())
 
-#Returns the date in format Y-m-d from a timestamp 
-def DateFromTimestamp(t,tz):
+#Returns the datetime in format YYYY-mm-dd HH:MM:SS
+def DatetimeFromTimestamp(t,tz):
 	if tz != None:
 		tz = timezone(tz)
-	return datetime.datetime.fromtimestamp(t,tz).strftime('%Y-%m-%d')
+	return datetime.datetime.fromtimestamp(t,tz).strftime('%Y-%m-%d %H:%M:%S')
 	
-#Returns the datetime in format Y-m-d H:M
-def DatetimeFromTimestamp(t):
-	return datetime.datetime.fromtimestamp(t).strftime('%Y-%m-%d %H:%M')
+#Returns the date in format Y-m-d from a datetime 
+def DateFromDatetime(s):
+	return s[0:10]
+	 
+#Returns the day in format Y-m-d Hh from a datetime
+def DateHourFromDatetime(s):
+	return s[0:13]+"h"
 	
-#Returns the day in format Y-m-d from a timestamp
-def DateAndHourFromTimestamp(t):
-	return datetime.datetime.fromtimestamp(t).strftime('%Y-%m-%d %Hh')
+#Returns the year from a datetime
+def YearFromDatetime(s):
+	return int(s[0:4])
 	
-#Returns the minute from a timestamp
-def MinuteFromTimestamp(t):
-	return int(datetime.datetime.fromtimestamp(t).strftime('%M'))
+#Returns the month from a datetime
+def MonthFromDatetime(s):
+	return int(s[5:7])
+	
+#Returns the day from a datetime
+def DayFromDatetime(s):
+	return int(s[8:10])	
+	
+#Returns the month from a datetime
+def HourFromDatetime(s):
+	return int(s[11:13])
+	
+#Returns the minute from a datetime
+def MinuteFromDatetime(s):
+	return int(s[14:16])
 
-#Returns the second from a timestamp
-def SecondFromTimestamp(t):
-	return int(datetime.datetime.fromtimestamp(t).strftime('%S'))
+#Returns the second from a datetime
+def SecondFromDatetime(s):
+	return int(s[17:19])
 		
-#Returns the month from a timestamp
-def HourFromTimestamp(t):
-	return int(datetime.datetime.fromtimestamp(t).strftime('%H'))
-	
-#Returns the month from a timestamp
-def DayFromTimestamp(t):
-	return int(datetime.datetime.fromtimestamp(t).strftime('%d'))
-
-#Returns the month from a timestamp
-def MonthFromTimestamp(t):
-	return int(datetime.datetime.fromtimestamp(t).strftime('%m'))
-	
-#Returns the month from a timestamp
-def YearFromTimestamp(t):
-	return int(datetime.datetime.fromtimestamp(t).strftime('%Y'))
-
 #Returns first timestamp of date s (s in format Y-m-d)
 def FirstTimestampOfDate(s):
 	return time.mktime(datetime.datetime.strptime(s, "%Y-%m-%d").timetuple())
@@ -85,7 +85,7 @@ def LastDayOfMonth(y,m):
 def LastTimestampOfMonth(y,m):
 	return LastTimestampOfDate(str(y)+"-"+str(m)+"-"+str(LastDayOfMonth(y,m)))
 		
-#Returns first timestamp of date s (s in format Y-m-d H:m)
+#Returns first timestamp of datetime s (s in format Y-m-d H:m)
 def TimestampOfDatetime(s):
 	return time.mktime(datetime.datetime.strptime(s, "%Y-%m-%d %H:%M").timetuple())
 

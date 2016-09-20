@@ -14,13 +14,14 @@
 import sys
 import sqlite3
 import numpy
+import time
 from scipy.signal import argrelextrema
 from sets import Set
 from optparse import OptionParser
 from itertools import chain
 import matplotlib.pyplot as plt
 from lib import ColorPrint
-
+from lib import DateHelper
 
 ##############################################################################
 #parse options
@@ -68,7 +69,7 @@ dbconn = sqlite3.connect('Weather.db')
 dbcursor = dbconn.cursor()
   
 ##############################################################################
-#get sensor ids from input
+#get sensor ids from input (via sensors and modules option)
 if modules == None and sensors == None:
 	sensors = []
 	modules = []
@@ -91,6 +92,64 @@ for module in modules:
 	res = map(int, res.split(','))
 	for sensor in res:
 		sensors.append(sensor)	
+		
+##############################################################################
+#dictionary for mapping a sensor to its module
+modules = []
+moduleforsensor = dict()
+for sensor in sensors:
+	dbcursor.execute("SELECT Id,SensorIds From Modules")
+	res = dbcursor.fetchall()
+	for x in res:
+		mods = map(int, x[1].split(','))
+		if sensor in mods:
+			module = int(x[0])
+			moduleforsensor[sensor] = module
+			if not module in modules:
+				modules.append(module)
+			
+##############################################################################
+#create dictionary for module locations
+modulelocations = dict()
+locations = []
+for module in modules:
+	dbcursor.execute("SELECT BeginTimestamp,LocationId FROM ModuleLocations WHERE ModuleId IS "+str(module)+" ORDER BY BeginTimestamp ASC")
+	res = dbcursor.fetchall()
+	locs = dict()
+	for x in res:
+		loc = int(x[1])
+		locs[x[0]] = loc
+		if not loc in locations:
+			locations.append(loc)
+		
+	modulelocations[module] = locs
+
+	
+##############################################################################
+#create dictionary of timezones (indexed by locations)
+timezones = dict()
+for location in locations:
+	dbcursor.execute("SELECT Timezone FROM Locations WHERE Id IS "+str(location))
+	res = dbcursor.fetchone()[0]
+	timezones[location] = res
+
+##############################################################################
+#get sensor location at specific timestamp
+def GetSensorLocation(sensor, timestamp):
+	module = moduleforsensor[sensor]
+	location = 0
+	for t in modulelocations[module].keys():
+		if timestamp >= t:
+			location = modulelocations[module][t]
+			
+	return location
+	
+##############################################################################		
+#converts timestamp into a datetime (format YYYY-MM-DD HH:MM:SS) taking the timezone of the location of the sensor at the given timestamp into account	
+def DatetimeFromTimestamp(sensor,timestamp):
+	timezone = timezones[GetSensorLocation(sensor,timestamp)]
+	return DateHelper.DatetimeFromTimestamp(timestamp,timezone)
+	
 	
 ##############################################################################
 #parse time filter options
@@ -112,15 +171,6 @@ def GetSensorQuality(sensor, datehours, verbose=None):
 	if verbose is None:	
 		verbose = False
 	
-	if verbose:
-		widgets = [
-			'Data quality:  ', Percentage(),
-			' ', Bar(),
-			' ', ETA()
-		]
-		pbar = ProgressBar(widgets=widgets, maxval=len(datehours), CR=True)
-		pbar.start()
-
 	count = 0
 	missingdatehours = []
 	numdatapoints = 0
@@ -137,12 +187,6 @@ def GetSensorQuality(sensor, datehours, verbose=None):
 		else:
 			numdatapoints = numdatapoints + int(res)
 		count = count + 1
-		if verbose:
-			pbar.update(count)
-	
-	if verbose:		
-		pbar.finish()
-		sys.stdout.write("\033[K") # 
 		
 	#quality
 	quality = 100.0*(float(len(datehours)-len(missingdatehours))/float(len(datehours)))
@@ -314,18 +358,17 @@ def Analyze(sensor, datehours, verbose=None):
 #General info about sensor
 def PrintGeneralSensorInfo(sensor):
 	
+
 	measurand = ((dbcursor.execute("SELECT Measurand From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]
 	unit = ((dbcursor.execute("SELECT Unit From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]
 	calibration = ((dbcursor.execute("SELECT Calibration From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]	
 	description = timezone = ((dbcursor.execute("SELECT Description From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]	
 	
 	print "Sensor ID:\t" + str(sensor)
+	print "  Module: \t" + str(moduleforsensor[sensor])
 	print "  Measurand: \t" + measurand + " ("+unit+")"
 	print "  Calibration: \t" + str(calibration)
 	
-##############################################################################
-#converts timestamp into a datetime taking the timezone of the location of sensor at given timestamp into account
-def GetDateTimeFromTimestamp(timestamp, sensor)
 
 ##############################################################################		
 #Overall stats
@@ -341,23 +384,26 @@ for sensor in sensors:
 		print ""
 		continue
 	
-	sys.exit(0) 
-	
 	#we first determine the datehour range from selected time restriction
 	#if no year range is given, we pick all available years for sensor
 	if years is None:
 		mincoveredtimestamp = ((dbcursor.execute("SELECT MIN(Timestamp) FROM Data WHERE Sensor IS "+str(sensor))).fetchone())[0]
-		minyear = YearFromTimestamp(mincoveredtimestamp)
+		mincovereddatetime = DatetimeFromTimestamp(sensor, mincoveredtimestamp)
+		minyear = DateHelper.YearFromDatetime(mincovereddatetime)
 		maxcoveredtimestamp = ((dbcursor.execute("SELECT MAX(Timestamp) FROM Data WHERE Sensor IS "+str(sensor))).fetchone())[0]
-		maxyear = YearFromTimestamp(maxcoveredtimestamp)
+		maxcovereddatetime = DatetimeFromTimestamp(sensor, maxcoveredtimestamp)
+		maxyear = DateHelper.YearFromDatetime(maxcovereddatetime)
 		years = range(minyear,maxyear+1)
 		
-	tmp = GetDateHours(years, months, days, hours, start, end)
+	tmp = DateHelper.GetDateHours(years, months, days, hours, start, end)
 	dates = tmp[0]
-	datehours = tmp[1]
+	datehours = tmp[1]	
 	startdate = time.strftime("%Y-%m-%d", dates[0] + [0,0,0,0,0,0])
 	enddate = time.strftime("%Y-%m-%d", dates[len(dates)-1] + [0,0,0,0,0,0])
-	print "Coverage: \t" + startdate + " to " + enddate  + " ("+str(len(dates))+" days)"
+	#print "  Range: \t" + startdate + " to " + enddate  + " ("+str(len(dates))+" days)"
+	
+	sys.exit(0)
+	
 	tmp = GetSensorQuality(sensor, datehours,verbose=True)
 	quality = round(tmp[0],3)
 	missingdatehours = tmp[1]

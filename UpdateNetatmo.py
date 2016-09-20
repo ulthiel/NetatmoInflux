@@ -176,7 +176,7 @@ def UpdateNetatmoForAccount(account):
 			data = netatm.getMeasure(id[0],id[1],"max",measurandsstring,None,None,None,"false")
 			maxdbtimestamp = min(map(int,data.keys()))
 			
-		Tools.PrintWithoutNewline("    Retrieving data from "+DateHelper.DateFromTimestamp(maxdbtimestamp,None)+" to now: 0%  ")
+		Tools.PrintWithoutNewline("    Retrieving data from "+DateHelper.DateFromDatetime(DateHelper.DatetimeFromTimestamp(maxdbtimestamp,None))+" to now: 0%  ")
 			
 		date_begin = maxdbtimestamp
 		date_end = maxdbtimestamp + 1 #will be modified soon
@@ -191,7 +191,7 @@ def UpdateNetatmoForAccount(account):
 			timestampcounter = timestampcounter + len(data)
 			date_begin = date_end+1
 			
-			Tools.PrintWithoutNewline("    Retrieving data from "+DateHelper.DateFromTimestamp(maxdbtimestamp,None)+" to now: "+str(int((float(date_end)-float(maxdbtimestamp))/float(maxval)*100.0))+'%  ')
+			Tools.PrintWithoutNewline("    Retrieving data from "+DateHelper.DateFromDatetime(DateHelper.DatetimeFromTimestamp(maxdbtimestamp,None))+" to now: "+str(int((float(date_end)-float(maxdbtimestamp))/float(maxval)*100.0))+'%  ')
 			
 			if len(data) != 0: #might be empty in case there is no data in this time window. we shouldn't break here though since there might still be earlier data
 				for timestamp in data.keys():
@@ -203,7 +203,7 @@ def UpdateNetatmoForAccount(account):
 			
 					dbconn.commit()
 
-		Tools.PrintWithoutNewline("    Retrieving data from "+DateHelper.DateFromTimestamp(maxdbtimestamp,None)+" to now: 100%  ")
+		Tools.PrintWithoutNewline("    Retrieving data from "+DateHelper.DateFromDatetime(DateHelper.DatetimeFromTimestamp(maxdbtimestamp,None))+" to now: 100%  ")
 		print ""
 		ColorPrint.ColorPrint("    "+str(datapointcounter)+" data points for "+str(timestampcounter)+" timestamps received", "okgreen")
 
