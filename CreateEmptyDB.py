@@ -64,7 +64,6 @@ def CreateEmptyDB():
 		"CREATE TABLE \"ModuleLocations\" (\n" \
 		"`ModuleId` INTEGER,\n" \
 		"`BeginTimestamp` INTEGER,\n" \
-		"`EndTimestamp` TEXT,\n" \
 		"`LocationId` INTEGER)\n" \
 	)
 	

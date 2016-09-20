@@ -8,8 +8,11 @@
 ##############################################################################
 
 ##############################################################################
-#This script updates all data from Netatmo
+#This script automatically updates all data from Netatmo
+##############################################################################
 
+##############################################################################
+#imports
 import sqlite3
 import os.path
 from lib import ColorPrint
@@ -18,9 +21,13 @@ import getpass
 from lib import DateHelper
 from lib import Tools
 
+##############################################################################
+#database connection
 dbconn = sqlite3.connect('Weather.db')
 dbcursor = dbconn.cursor()
 	
+##############################################################################
+#function to update all devices/modules for specific account (this is the main function)
 def UpdateNetatmoForAccount(account):
 
 	username = account[0]
@@ -60,6 +67,7 @@ def UpdateNetatmoForAccount(account):
 				locationid = locationid[0]
 				
 			sensorids = []
+			#set correct units
 			for measurand in netatm.measurands[id]:
 				if measurand == "CO2":
 					unit = "ppm"
@@ -110,22 +118,34 @@ def UpdateNetatmoForAccount(account):
 
 			moduleid = (dbcursor.execute("SELECT last_insert_rowid();").fetchone())[0]
 			
-			dbcursor.execute("INSERT INTO ModuleLocations (ModuleId,LocationId) VALUES ("+str(moduleid)+","+str(locationid)+")")
+			#get first time stamp for module and set this as BeginTimestamp for location of module
+			measurandsstring = ""
+			measurands = netatm.measurands[id]
+			for i in range(0,len(measurands)):
+				measurandsstring = measurandsstring + measurands[i]
+				if i < len(measurands)-1:
+					measurandsstring = measurandsstring + ","
+			data = netatm.getMeasure(id[0],id[1],"max",measurandsstring,None,None,None,"false")
+			minservertimestamp = min(map(int,data.keys()))
+			
+			dbcursor.execute("INSERT INTO ModuleLocations (ModuleId,BeginTimestamp,LocationId) VALUES ("+str(moduleid)+","+str(minservertimestamp)+","+str(locationid)+")")
 					
 			if id[1] == None:
 				dbcursor.execute("INSERT INTO NetatmoModules (NetatmoDeviceId,ModuleId) VALUES (\""+id[0]+"\","+str(moduleid)+")")
 				
-				ColorPrint.ColorPrint("Added device "+id[0]+" as module "+str(moduleid)+" at location "+str(locationid), "okblue")
+				ColorPrint.ColorPrint("Added device "+id[0]+" as module "+str(moduleid)+" at location "+str(locationid), "okgreen")
 				
 			else:
 				
 				dbcursor.execute("INSERT INTO NetatmoModules (NetatmoDeviceId,NetatmoModuleId,ModuleId) VALUES (\""+id[0]+"\",\""+id[1]+"\","+str(moduleid)+")")
 				
-				ColorPrint.ColorPrint("Added module "+id[1]+" of device "+id[0]+" as module "+str(moduleid)+" at location "+str(locationid), "okblue")
-					
+				ColorPrint.ColorPrint("Added module "+id[1]+" of device "+id[0]+" as module "+str(moduleid)+" at location "+str(locationid), "okgreen")
+						
 		else:
 			moduleid = moduleid[0]
-			
+	
+		dbconn.commit()
+				
 		#now, update data
 		currenttime = DateHelper.CurrentTimestamp()
 		res = dbcursor.execute("SELECT SensorIds FROM Modules WHERE Id IS "+str(moduleid)).fetchone()[0]
@@ -145,24 +165,24 @@ def UpdateNetatmoForAccount(account):
 			print "  Updating data for module "+id[1]+" of device "+id[0]
 			
 		#find last timestamp among all sensors (this is the minimal point up to which we have to update data)
-		maxtimestamp = None
+		maxdbtimestamp = None
 		for sensorid in sensorids:
 			mt = dbcursor.execute("SELECT MAX(Timestamp) FROM Data WHERE Sensor IS "+str(sensorid)).fetchone()[0]
-			if mt != None and (maxtimestamp == None or mt < maxtimestamp): #< is correct here
-				maxtimestamp = mt
+			if mt != None and (maxdbtimestamp == None or mt < maxdbtimestamp): #< is correct here
+				maxdbtimestamp = mt
 				
-		if maxtimestamp == None:
-			#get maximal timestamp for device/module from server
+		if maxdbtimestamp == None:
+			#get minimal timestamp for device/module from server
 			data = netatm.getMeasure(id[0],id[1],"max",measurandsstring,None,None,None,"false")
-			maxtimestamp = min(map(int,data.keys()))
+			maxdbtimestamp = min(map(int,data.keys()))
 			
-		Tools.PrintWithoutNewline("    Retrieving data from "+DateHelper.DateFromTimestamp(maxtimestamp,None)+" to now: 0%  ")
+		Tools.PrintWithoutNewline("    Retrieving data from "+DateHelper.DateFromTimestamp(maxdbtimestamp,None)+" to now: 0%  ")
 			
-		date_begin = maxtimestamp
-		date_end = maxtimestamp + 1 #will be modified soon
+		date_begin = maxdbtimestamp
+		date_end = maxdbtimestamp + 1 #will be modified soon
 		timestampcounter = 0 #will count number of retrieved timestamps
 		datapointcounter = 0 #will count number of datapoints
-		maxval=currenttime-maxtimestamp #for progress bar
+		maxval=currenttime-maxdbtimestamp #for progress bar
 		while date_end < currenttime:
 			date_end = min(currenttime,date_begin + 1000*5*60) #this is a bit ugly. netatmo resolution is one data point every 5 minutes. we can retrieve at most 1024 data points per request. so this is a block of 85.3 hours. now, there might be some on additional on demand measurements in this time window, this is why I used 1000 instead of 1024 above. by design, there will be no duplicates in the database, so this should be fine. this only causes a bit more traffic (and of course we might miss some on demand measurements if there are more than 24 within the 85.3 hour time window (but who's doing this anyways? moreover, for weather statistics it doesn't really matter if we miss a point between the two five minute ones!)).
 
@@ -171,7 +191,7 @@ def UpdateNetatmoForAccount(account):
 			timestampcounter = timestampcounter + len(data)
 			date_begin = date_end+1
 			
-			Tools.PrintWithoutNewline("    Retrieving data from "+DateHelper.DateFromTimestamp(maxtimestamp,None)+" to now: "+str(int((float(date_end)-float(maxtimestamp))/float(maxval)*100.0))+'%  ')
+			Tools.PrintWithoutNewline("    Retrieving data from "+DateHelper.DateFromTimestamp(maxdbtimestamp,None)+" to now: "+str(int((float(date_end)-float(maxdbtimestamp))/float(maxval)*100.0))+'%  ')
 			
 			if len(data) != 0: #might be empty in case there is no data in this time window. we shouldn't break here though since there might still be earlier data
 				for timestamp in data.keys():
@@ -183,12 +203,13 @@ def UpdateNetatmoForAccount(account):
 			
 					dbconn.commit()
 
-		Tools.PrintWithoutNewline("    Retrieving data from "+DateHelper.DateFromTimestamp(maxtimestamp,None)+" to now: 100%  ")
+		Tools.PrintWithoutNewline("    Retrieving data from "+DateHelper.DateFromTimestamp(maxdbtimestamp,None)+" to now: 100%  ")
 		print ""
-		ColorPrint.ColorPrint("    Done. Data for "+str(timestampcounter)+" timestamps received (total number of data points: "+str(datapointcounter)+")", "okblue")
+		ColorPrint.ColorPrint("    "+str(datapointcounter)+" data points for "+str(timestampcounter)+" timestamps received", "okgreen")
 
 	
-#Update Netatmo 
+##############################################################################
+#This iterates through all accounts
 def UpdateNetatmo():
 	
 	dbcursor.execute("SELECT * From NetatmoAccounts")
