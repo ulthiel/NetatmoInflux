@@ -1,658 +1,355 @@
-from __future__ import division, absolute_import, with_statement
-from __future__ import print_function
+# -*- coding: utf-8 -*-
+#
+# progressbar  - Text progress bar library for Python.
+# Copyright (c) 2005 Nilton Volpato
+#
+# This library is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Lesser General Public
+# License as published by the Free Software Foundation; either
+# version 2.1 of the License, or (at your option) any later version.
+#
+# This library is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public
+# License along with this library; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+
+"""Default ProgressBar widgets."""
+
+from __future__ import division
 
 import datetime
-import abc
-import sys
-import pprint
-from python_utils import converters
+import math
 
-from . import utils
-from . import six
-from . import base
-
-
-MAX_DATE = datetime.date(year=datetime.MAXYEAR, month=12, day=31)
-MAX_TIME = datetime.time(23, 59, 59)
-MAX_DATETIME = datetime.datetime.combine(MAX_DATE, MAX_TIME)
+try:
+    from abc import ABCMeta, abstractmethod
+except ImportError:
+    AbstractWidget = object
+    abstractmethod = lambda fn: fn
+else:
+    AbstractWidget = ABCMeta('AbstractWidget', (object,), {})
 
 
-def string_or_lambda(input_):
-    if isinstance(input_, six.basestring):
-        def render_input(progress, data, width):
-            return input_ % data
-
-        return render_input
-    else:
-        return input_
+def format_updatable(updatable, pbar):
+    if hasattr(updatable, 'update'): return updatable.update(pbar)
+    else: return updatable
 
 
-def create_marker(marker):
-    def _marker(progress, data, width):
-        if progress.max_value is not base.UnknownLength \
-                and progress.max_value > 0:
-            length = int(progress.value / progress.max_value * width)
-            return (marker * length)
-        else:
-            return marker
-
-    if isinstance(marker, six.basestring):
-        assert len(marker) == 1, 'Markers are required to be 1 char'
-        return _marker
-    else:
-        return marker
-
-
-class FormatWidgetMixin(object):
-
-    '''Mixin to format widgets using a formatstring
-
-    Variables available:
-     - max_value: The maximum value (can be None with iterators)
-     - value: The current value
-     - total_seconds_elapsed: The seconds since the bar started
-     - seconds_elapsed: The seconds since the bar started modulo 60
-     - minutes_elapsed: The minutes since the bar started modulo 60
-     - hours_elapsed: The hours since the bar started modulo 24
-     - days_elapsed: The hours since the bar started
-     - time_elapsed: Shortcut for HH:MM:SS time since the bar started including
-       days
-     - percentage: Percentage as a float
-    '''
-    required_values = []
-
-    def __init__(self, format, **kwargs):
-        self.format = format
-
-    def __call__(self, progress, data, format=None):
-        '''Formats the widget into a string'''
-        try:
-            return (format or self.format) % data
-        except (TypeError, KeyError):
-            print('Error while formatting %r' % self.format, file=sys.stderr)
-            pprint.pprint(data, stream=sys.stderr)
-            raise
-
-
-class WidthWidgetMixin(object):
-    '''Mixing to make sure widgets are only visible if the screen is within a
-    specified size range so the progressbar fits on both large and small
-    screens..
-    '''
-    def __init__(self, min_width=None, max_width=None, **kwargs):
-        self.min_width = min_width
-        self.max_width = max_width
-
-    def check_size(self, progress):
-        if self.min_width and self.min_width > progress.term_width:
-            return False
-        elif self.max_width and self.max_width < progress.term_width:
-            return False
-        else:
-            return True
-
-
-class WidgetBase(object):
-    __metaclass__ = abc.ABCMeta
-    '''The base class for all widgets
+class Widget(AbstractWidget):
+    """The base class for all widgets.
 
     The ProgressBar will call the widget's update value when the widget should
     be updated. The widget's size may change between calls, but the widget may
     display incorrectly if the size changes drastically and repeatedly.
 
-    The boolean INTERVAL informs the ProgressBar that it should be
+    The boolean TIME_SENSITIVE informs the ProgressBar that it should be
     updated more often because it is time sensitive.
+    """
 
-    WARNING: Widgets can be shared between multiple progressbars so any state
-    information specific to a progressbar should be stored within the
-    progressbar instead of the widget.
-    '''
+    TIME_SENSITIVE = False
+    __slots__ = ()
 
-    def __init__(self, **kwargs):
-        pass
+    @abstractmethod
+    def update(self, pbar):
+        """Updates the widget.
 
-    @abc.abstractmethod
-    def __call__(self, progress, data):
-        '''Updates the widget.
-
-        progress - a reference to the calling ProgressBar
-        '''
+        pbar - a reference to the calling ProgressBar
+        """
 
 
-class AutoWidthWidgetBase(WidgetBase):
-
-    '''The base class for all variable width widgets.
+class WidgetHFill(Widget):
+    """The base class for all variable width widgets.
 
     This widget is much like the \\hfill command in TeX, it will expand to
     fill the line. You can use more than one in the same line, and they will
     all have the same width, and together will fill the line.
-    '''
+    """
 
-    @abc.abstractmethod
-    def __call__(self, progress, data, width):
-        '''Updates the widget providing the total width the widget must fill.
+    @abstractmethod
+    def update(self, pbar, width):
+        """Updates the widget providing the total width the widget must fill.
 
-        progress - a reference to the calling ProgressBar
+        pbar - a reference to the calling ProgressBar
         width - The total width the widget must fill
-        '''
+        """
 
 
-class TimeSensitiveWidgetBase(WidgetBase):
+class Timer(Widget):
+    """Widget which displays the elapsed seconds."""
 
-    '''The base class for all time sensitive widgets.
+    __slots__ = ('format_string',)
+    TIME_SENSITIVE = True
 
-    Some widgets like timers would become out of date unless updated at least
-    every `INTERVAL`
-    '''
-    INTERVAL = datetime.timedelta(milliseconds=100)
+    def __init__(self, format='Elapsed Time: %s'):
+        self.format_string = format
 
+    @staticmethod
+    def format_time(seconds):
+        """Formats time as the string "HH:MM:SS"."""
 
-class FormatLabel(FormatWidgetMixin, WidthWidgetMixin):
-
-    '''Displays a formatted label
-
-    >>> label = FormatLabel('%(value)s', min_width=5, max_width=10)
-    >>> class Progress(object):
-    ...     pass
-
-    >>> Progress.term_width = 0
-    >>> label(Progress, dict(value='test'))
-    ''
-
-    >>> Progress.term_width = 5
-    >>> label(Progress, dict(value='test'))
-    'test'
-
-    >>> Progress.term_width = 10
-    >>> label(Progress, dict(value='test'))
-    'test'
-
-    >>> Progress.term_width = 11
-    >>> label(Progress, dict(value='test'))
-    ''
-    '''
-
-    mapping = {
-        'finished': ('end_time', None),
-        'last_update': ('last_update_time', None),
-        'max': ('max_value', None),
-        'seconds': ('seconds_elapsed', None),
-        'start': ('start_time', None),
-        'elapsed': ('total_seconds_elapsed', utils.format_time),
-        'value': ('value', None),
-    }
-
-    def __init__(self, format, **kwargs):
-        FormatWidgetMixin.__init__(self, format=format, **kwargs)
-        WidthWidgetMixin.__init__(self, **kwargs)
-
-    def __call__(self, progress, data, **kwargs):
-        if not self.check_size(progress):
-            return ''
-
-        for name, (key, transform) in self.mapping.items():
-            try:
-                if transform is None:
-                    data[name] = data[key]
-                else:
-                    data[name] = transform(data[key])
-            except:  # pragma: no cover
-                pass
-
-        return FormatWidgetMixin.__call__(self, progress, data, **kwargs)
+        return str(datetime.timedelta(seconds=int(seconds)))
 
 
-class Timer(FormatLabel, TimeSensitiveWidgetBase):
-    '''WidgetBase which displays the elapsed seconds.'''
+    def update(self, pbar):
+        """Updates the widget to show the elapsed time."""
 
-    def __init__(self, format='Elapsed Time: %(elapsed)s', **kwargs):
-        FormatLabel.__init__(self, format=format, **kwargs)
-        TimeSensitiveWidgetBase.__init__(self, **kwargs)
-
-    # This is exposed as a static method for backwards compatibility
-    format_time = staticmethod(utils.format_time)
-
-
-class SamplesMixin(object):
-    def __init__(self, samples=10, key_prefix=None, **kwargs):
-        self.samples = samples
-        self.key_prefix = (self.__class__.__name__ or key_prefix) + '_'
-
-    def get_sample_times(self, progress, data):
-        return progress.extra.setdefault(self.key_prefix + 'sample_times', [])
-
-    def get_sample_values(self, progress, data):
-        return progress.extra.setdefault(self.key_prefix + 'sample_values', [])
-
-    def __call__(self, progress, data):
-        sample_times = self.get_sample_times(progress, data)
-        sample_values = self.get_sample_values(progress, data)
-
-        if sample_times:
-            sample_time = sample_times[-1]
-        else:
-            sample_time = datetime.datetime.min
-
-        if progress.last_update_time - sample_time > self.INTERVAL:
-            # Add a sample but limit the size to `num_samples`
-            sample_times.append(progress.last_update_time)
-            sample_values.append(progress.value)
-
-            if len(sample_times) > self.samples:
-                sample_times.pop(0)
-                sample_values.pop(0)
-
-        return sample_times, sample_values
+        return self.format_string % self.format_time(pbar.seconds_elapsed)
 
 
 class ETA(Timer):
+    """Widget which attempts to estimate the time of arrival."""
 
-    '''WidgetBase which attempts to estimate the time of arrival.'''
+    TIME_SENSITIVE = True
 
-    def __init__(
-            self,
-            format_not_started='ETA:  --:--:--',
-            format_finished='Time: %(elapsed)s',
-            format='ETA: %(eta)s',
-            format_zero='ETA:  0:00:00',
-            **kwargs):
-        Timer.__init__(self, **kwargs)
-        self.format_not_started = format_not_started
-        self.format_finished = format_finished
-        self.format = format
-        self.format_zero = format_zero
+    def update(self, pbar):
+        """Updates the widget to show the ETA or total time when finished."""
 
-    def _calculate_eta(self, progress, data, value, elapsed):
-        '''Updates the widget to show the ETA or total time when finished.'''
-        if elapsed:
-            # The max() prevents zero division errors
-            per_item = elapsed / max(value, 0.0000000001)
-            remaining = progress.max_value - data['value']
-            eta_seconds = remaining * per_item
+        if pbar.currval == 0:
+            return 'ETA:  --:--:--'
+        elif pbar.finished:
+            return 'Time: %s' % self.format_time(pbar.seconds_elapsed)
         else:
-            eta_seconds = 0
+            elapsed = pbar.seconds_elapsed
+            eta = elapsed * pbar.maxval / pbar.currval - elapsed
+            return 'ETA:  %s' % self.format_time(eta)
 
-        return eta_seconds
 
-    def __call__(self, progress, data, value=None, elapsed=None):
-        '''Updates the widget to show the ETA or total time when finished.'''
+class AdaptiveETA(Timer):
+    """Widget which attempts to estimate the time of arrival.
 
-        if value is None:
-            value = data['value']
+    Uses a weighted average of two estimates:
+      1) ETA based on the total progress and time elapsed so far
+      2) ETA based on the progress as per the last 10 update reports
 
-        if elapsed is None:
-            elapsed = data['total_seconds_elapsed']
+    The weight depends on the current progress so that to begin with the
+    total progress is used and at the end only the most recent progress is
+    used.
+    """
 
-        data['eta_seconds'] = self._calculate_eta(
-            progress, data, value=value, elapsed=elapsed)
-        if data['eta_seconds']:
-            data['eta'] = utils.format_time(data['eta_seconds'])
+    TIME_SENSITIVE = True
+    NUM_SAMPLES = 10
+
+    def _update_samples(self, currval, elapsed):
+        sample = (currval, elapsed)
+        if not hasattr(self, 'samples'):
+            self.samples = [sample] * (self.NUM_SAMPLES + 1)
         else:
-            data['eta'] = None
+            self.samples.append(sample)
+        return self.samples.pop(0)
 
-        if data['value'] == progress.min_value:
-            format = self.format_not_started
-        elif progress.end_time:
-            format = self.format_finished
-        elif data['eta']:
-            format = self.format
+    def _eta(self, maxval, currval, elapsed):
+        return elapsed * maxval / float(currval) - elapsed
+
+    def update(self, pbar):
+        """Updates the widget to show the ETA or total time when finished."""
+        if pbar.currval == 0:
+            return 'ETA:  --:--:--'
+        elif pbar.finished:
+            return 'Time: %s' % self.format_time(pbar.seconds_elapsed)
         else:
-            format = self.format_zero
-
-        return Timer.__call__(self, progress, data, format=format)
-
-
-class AbsoluteETA(ETA):
-
-    '''Widget which attempts to estimate the absolute time of arrival.'''
-
-    def _calculate_eta(self, progress, data, value, elapsed):
-        eta_seconds = ETA._calculate_eta(self, progress, data, value, elapsed)
-        now = datetime.datetime.now()
-        try:
-            return now + datetime.timedelta(seconds=eta_seconds)
-        except OverflowError:  # pragma: no cover
-            return datetime.datetime.max
-
-    def __init__(
-            self,
-            format_not_started='Estimated finish time:  ----/--/-- --:--:--',
-            format_finished='Finished at: %(elapsed)s',
-            format='Estimated finish time: %(eta)s',
-            **kwargs):
-        Timer.__init__(self, **kwargs)
-        self.format_not_started = format_not_started
-        self.format_finished = format_finished
-        self.format = format
+            elapsed = pbar.seconds_elapsed
+            currval1, elapsed1 = self._update_samples(pbar.currval, elapsed)
+            eta = self._eta(pbar.maxval, pbar.currval, elapsed)
+            if pbar.currval > currval1:
+                etasamp = self._eta(pbar.maxval - currval1,
+                                    pbar.currval - currval1,
+                                    elapsed - elapsed1)
+                weight = (pbar.currval / float(pbar.maxval)) ** 0.5
+                eta = (1 - weight) * eta + weight * etasamp
+            return 'ETA:  %s' % self.format_time(eta)
 
 
-class AdaptiveETA(ETA, SamplesMixin):
+class FileTransferSpeed(Widget):
+    """Widget for showing the transfer speed (useful for file transfers)."""
 
-    '''WidgetBase which attempts to estimate the time of arrival.
+    FORMAT = '%6.2f %s%s/s'
+    PREFIXES = ' kMGTPEZY'
+    __slots__ = ('unit',)
 
-    Uses a sampled average of the speed based on the 10 last updates.
-    Very convenient for resuming the progress halfway.
-    '''
-
-    def __init__(self, **kwargs):
-        ETA.__init__(self, **kwargs)
-        SamplesMixin.__init__(self, **kwargs)
-
-    def __call__(self, progress, data):
-        times, values = SamplesMixin.__call__(self, progress, data)
-
-        if len(times) <= 1:
-            # No samples so just return the normal ETA calculation
-            value = None
-            elapsed = 0
-        else:
-            value = values[-1] - values[0]
-            elapsed = utils.timedelta_to_seconds(times[-1] - times[0])
-
-        return ETA.__call__(self, progress, data, value=value, elapsed=elapsed)
-
-
-class DataSize(FormatWidgetMixin):
-
-    '''
-    Widget for showing an amount of data transferred/processed.
-
-    Automatically formats the value (assumed to be a count of bytes) with an
-    appropriate sized unit, based on the IEC binary prefixes (powers of 1024).
-    '''
-
-    def __init__(
-            self, variable='value',
-            format='%(scaled)5.1f %(prefix)s%(unit)s', unit='B',
-            prefixes=('', 'Ki', 'Mi', 'Gi', 'Ti', 'Pi', 'Ei', 'Zi', 'Yi'),
-            **kwargs):
-        self.variable = variable
+    def __init__(self, unit='B'):
         self.unit = unit
-        self.prefixes = prefixes
-        FormatWidgetMixin.__init__(self, format=format, **kwargs)
 
-    def __call__(self, progress, data):
-        value = data[self.variable]
-        if value is not None:
-            scaled, power = utils.scale_1024(value, len(self.prefixes))
-        else:
+    def update(self, pbar):
+        """Updates the widget with the current SI prefixed speed."""
+
+        if pbar.seconds_elapsed < 2e-6 or pbar.currval < 2e-6: # =~ 0
             scaled = power = 0
-
-        data['scaled'] = scaled
-        data['prefix'] = self.prefixes[power]
-        data['unit'] = self.unit
-
-        return FormatWidgetMixin.__call__(self, progress, data)
-
-
-class FileTransferSpeed(FormatWidgetMixin, TimeSensitiveWidgetBase):
-    '''
-    WidgetBase for showing the transfer speed (useful for file transfers).
-    '''
-
-    def __init__(
-            self, format='%(scaled)5.1f %(prefix)s%(unit)-s/s',
-            inverse_format='%(scaled)5.1f s/%(prefix)s%(unit)-s', unit='B',
-            prefixes=('', 'Ki', 'Mi', 'Gi', 'Ti', 'Pi', 'Ei', 'Zi', 'Yi'),
-            **kwargs):
-        self.unit = unit
-        self.prefixes = prefixes
-        self.inverse_format = inverse_format
-        FormatWidgetMixin.__init__(self, format=format, **kwargs)
-        TimeSensitiveWidgetBase.__init__(self, **kwargs)
-
-    def _speed(self, value, elapsed):
-        speed = float(value) / elapsed
-        return utils.scale_1024(speed, len(self.prefixes))
-
-    def __call__(self, progress, data, value=None, total_seconds_elapsed=None):
-        '''Updates the widget with the current SI prefixed speed.'''
-        value = data['value'] or value
-        elapsed = data['total_seconds_elapsed'] or total_seconds_elapsed
-
-        if value is not None and elapsed is not None \
-                and elapsed > 2e-6 and value > 2e-6:  # =~ 0
-            scaled, power = self._speed(value, elapsed)
         else:
-            scaled = power = 0
+            speed = pbar.currval / pbar.seconds_elapsed
+            power = int(math.log(speed, 1000))
+            scaled = speed / 1000.**power
 
-        data['unit'] = self.unit
-        if power == 0 and scaled < 0.1:
-            if scaled > 0:
-                scaled = 1 / scaled
-            data['scaled'] = scaled
-            data['prefix'] = self.prefixes[0]
-            return FormatWidgetMixin.__call__(self, progress, data,
-                                              self.inverse_format)
-        else:
-            data['scaled'] = scaled
-            data['prefix'] = self.prefixes[power]
-            return FormatWidgetMixin.__call__(self, progress, data)
+        return self.FORMAT % (scaled, self.PREFIXES[power], self.unit)
 
 
-class AdaptiveTransferSpeed(FileTransferSpeed, SamplesMixin):
-    '''WidgetBase for showing the transfer speed, based on the last X samples
-    '''
-
-    def __init__(self, **kwargs):
-        FileTransferSpeed.__init__(self, **kwargs)
-        SamplesMixin.__init__(self, **kwargs)
-
-    def __call__(self, progress, data):
-        times, values = SamplesMixin.__call__(self, progress, data)
-        if len(times) <= 1:
-            # No samples so just return the normal transfer speed calculation
-            value = None
-            elapsed = None
-        else:
-            value = values[-1] - values[0]
-            elapsed = utils.timedelta_to_seconds(times[-1] - times[0])
-
-        return FileTransferSpeed.__call__(self, progress, data, value, elapsed)
-
-
-class AnimatedMarker(WidgetBase):
-    '''An animated marker for the progress bar which defaults to appear as if
+class AnimatedMarker(Widget):
+    """An animated marker for the progress bar which defaults to appear as if
     it were rotating.
-    '''
+    """
 
-    def __init__(self, markers='|/-\\', default=None, **kwargs):
+    __slots__ = ('markers', 'curmark')
+
+    def __init__(self, markers='|/-\\'):
         self.markers = markers
-        self.default = default or markers[0]
-        WidgetBase.__init__(self, **kwargs)
+        self.curmark = -1
 
-    def __call__(self, progress, data, width=None):
-        '''Updates the widget to show the next marker or the first marker when
-        finished'''
+    def update(self, pbar):
+        """Updates the widget to show the next marker or the first marker when
+        finished"""
 
-        if progress.end_time:
-            return self.default
+        if pbar.finished: return self.markers[0]
 
-        return self.markers[data['updates'] % len(self.markers)]
+        self.curmark = (self.curmark + 1) % len(self.markers)
+        return self.markers[self.curmark]
 
 # Alias for backwards compatibility
 RotatingMarker = AnimatedMarker
 
 
-class Counter(FormatWidgetMixin, WidgetBase):
-    '''Displays the current count'''
+class Counter(Widget):
+    """Displays the current count."""
 
-    def __init__(self, format='%(value)d', **kwargs):
-        FormatWidgetMixin.__init__(self, format=format, **kwargs)
-        WidgetBase.__init__(self, format=format, **kwargs)
+    __slots__ = ('format_string',)
 
+    def __init__(self, format='%d'):
+        self.format_string = format
 
-class Percentage(FormatWidgetMixin, WidgetBase):
-    '''Displays the current percentage as a number with a percent sign.'''
-
-    def __init__(self, format='%(percentage)3d%%', **kwargs):
-        FormatWidgetMixin.__init__(self, format=format, **kwargs)
-        WidgetBase.__init__(self, format=format, **kwargs)
+    def update(self, pbar):
+        return self.format_string % pbar.currval
 
 
-class SimpleProgress(FormatWidgetMixin, WidgetBase):
-    '''Returns progress as a count of the total (e.g.: "5 of 47")'''
+class Percentage(Widget):
+    """Displays the current percentage as a number with a percent sign."""
 
-    def __init__(self, format='%(value)d of %(max_value)d', max_width=None,
-                 **kwargs):
-        self.max_width = dict(default=max_width)
-        FormatWidgetMixin.__init__(self, format=format, **kwargs)
-        WidgetBase.__init__(self, format=format, **kwargs)
-
-    def __call__(self, progress, data, format=None):
-        formatted = FormatWidgetMixin.__call__(self, progress, data,
-                                               format=format)
-
-        # Guess the maximum width from the min and max value
-        key = progress.min_value, progress.max_value
-        max_width = self.max_width.get(key, self.max_width['default'])
-        if not max_width:
-            temporary_data = data.copy()
-            for value in key:
-                if value is None:  # pragma: no cover
-                    continue
-
-                temporary_data['value'] = value
-                width = len(FormatWidgetMixin.__call__(
-                    self, progress, temporary_data, format=format))
-                if width:  # pragma: no branch
-                    max_width = max(max_width or 0, width)
-
-            self.max_width[key] = max_width
-
-        # Adjust the output to have a consistent size in all cases
-        if max_width:  # pragma: no branch
-            formatted = formatted.rjust(max_width)
-        return formatted
+    def update(self, pbar):
+        return '%3d%%' % pbar.percentage()
 
 
-class Bar(AutoWidthWidgetBase):
+class FormatLabel(Timer):
+    """Displays a formatted label."""
 
-    '''A progress bar which stretches to fill the line.'''
+    mapping = {
+        'elapsed': ('seconds_elapsed', Timer.format_time),
+        'finished': ('finished', None),
+        'last_update': ('last_update_time', None),
+        'max': ('maxval', None),
+        'seconds': ('seconds_elapsed', None),
+        'start': ('start_time', None),
+        'value': ('currval', None)
+    }
 
-    def __init__(self, marker='#', left='|', right='|', fill=' ',
-                 fill_left=True, **kwargs):
-        '''Creates a customizable progress bar.
+    __slots__ = ('format_string',)
+    def __init__(self, format):
+        self.format_string = format
 
-        The callable takes the same parameters as the `__call__` method
+    def update(self, pbar):
+        context = {}
+        for name, (key, transform) in self.mapping.items():
+            try:
+                value = getattr(pbar, key)
 
-        marker - string or callable object to use as a marker
-        left - string or callable object to use as a left border
-        right - string or callable object to use as a right border
-        fill - character to use for the empty part of the progress bar
-        fill_left - whether to fill from the left or the right
-        '''
+                if transform is None:
+                   context[name] = value
+                else:
+                   context[name] = transform(value)
+            except: pass
 
-        self.marker = create_marker(marker)
-        self.left = string_or_lambda(left)
-        self.right = string_or_lambda(right)
-        self.fill = string_or_lambda(fill)
-        self.fill_left = fill_left
-
-        AutoWidthWidgetBase.__init__(self, **kwargs)
-
-    def __call__(self, progress, data, width):
-        '''Updates the progress bar and its subcomponents'''
-
-        left = converters.to_unicode(self.left(progress, data, width))
-        right = converters.to_unicode(self.right(progress, data, width))
-        width -= len(left) + len(right)
-        marker = converters.to_unicode(self.marker(progress, data, width))
-        fill = converters.to_unicode(self.fill(progress, data, width))
-
-        if self.fill_left:
-            marker = marker.ljust(width, fill)
-        else:
-            marker = marker.rjust(width, fill)
-
-        return left + marker + right
+        return self.format_string % context
 
 
-class ReverseBar(Bar):
+class SimpleProgress(Widget):
+    """Returns progress as a count of the total (e.g.: "5 of 47")."""
 
-    '''A bar which has a marker that goes from right to left'''
+    __slots__ = ('sep',)
+
+    def __init__(self, sep=' of '):
+        self.sep = sep
+
+    def update(self, pbar):
+        return '%d%s%d' % (pbar.currval, self.sep, pbar.maxval)
+
+
+class Bar(WidgetHFill):
+    """A progress bar which stretches to fill the line."""
+
+    __slots__ = ('marker', 'left', 'right', 'fill', 'fill_left')
 
     def __init__(self, marker='#', left='|', right='|', fill=' ',
-                 fill_left=False, **kwargs):
-        '''Creates a customizable progress bar.
+                 fill_left=True):
+        """Creates a customizable progress bar.
 
         marker - string or updatable object to use as a marker
         left - string or updatable object to use as a left border
         right - string or updatable object to use as a right border
         fill - character to use for the empty part of the progress bar
         fill_left - whether to fill from the left or the right
-        '''
-        Bar.__init__(self, marker=marker, left=left, right=right, fill=fill,
-                     fill_left=fill_left, **kwargs)
+        """
+        self.marker = marker
+        self.left = left
+        self.right = right
+        self.fill = fill
+        self.fill_left = fill_left
 
 
-class BouncingBar(Bar, TimeSensitiveWidgetBase):
+    def update(self, pbar, width):
+        """Updates the progress bar and its subcomponents."""
 
-    '''A bar which has a marker which bounces from side to side.'''
+        left, marked, right = (format_updatable(i, pbar) for i in
+                               (self.left, self.marker, self.right))
 
-    INTERVAL = datetime.timedelta(milliseconds=100)
-
-    def __call__(self, progress, data, width):
-        '''Updates the progress bar and its subcomponents'''
-
-        left = converters.to_unicode(self.left(progress, data, width))
-        right = converters.to_unicode(self.right(progress, data, width))
         width -= len(left) + len(right)
-        marker = converters.to_unicode(self.marker(progress, data, width))
-
-        fill = converters.to_unicode(self.fill(progress, data, width))
-
-        if width:  # pragma: no branch
-            value = int(
-                data['total_seconds_elapsed'] / self.INTERVAL.total_seconds())
-
-            a = value % width
-            b = width - a - 1
-            if value % (width * 2) >= width:
-                a, b = b, a
-
-            if self.fill_left:
-                marker = a * fill + marker + b * fill
-            else:
-                marker = b * fill + marker + a * fill
-
-        return left + marker + right
-
-
-class FormatCustomText(FormatWidgetMixin, WidthWidgetMixin):
-    mapping = {}
-
-    def __init__(self, format, mapping=mapping, **kwargs):
-        self.format = format
-        self.mapping = mapping
-        FormatWidgetMixin.__init__(self, format=format, **kwargs)
-        WidthWidgetMixin.__init__(self, **kwargs)
-
-    def update_mapping(self, **mapping):
-        self.mapping.update(mapping)
-
-    def __call__(self, progress, data):
-        return FormatWidgetMixin.__call__(self, progress, self.mapping,
-                                          self.format)
-
-
-class DynamicMessage(FormatWidgetMixin, WidgetBase):
-
-    '''Displays a custom variable.'''
-
-    def __init__(self, name):
-        '''Creates a DynamicMessage associated with the given name.'''
-        if not isinstance(name, str):
-            raise TypeError('DynamicMessage(): argument must be a string')
-        if len(name.split()) > 1:
-            raise ValueError(
-                'DynamicMessage(): argument must be single word')
-
-        self.name = name
-
-    def __call__(self, progress, data):
-        val = data['dynamic_messages'][self.name]
-        if val:
-            return self.name + ': ' + '{:6.3g}'.format(val)
+        # Marked must *always* have length of 1
+        if pbar.maxval:
+          marked *= int(pbar.currval / pbar.maxval * width)
         else:
-            return self.name + ': ' + 6 * '-'
+          marked = ''
+
+        if self.fill_left:
+            return '%s%s%s' % (left, marked.ljust(width, self.fill), right)
+        else:
+            return '%s%s%s' % (left, marked.rjust(width, self.fill), right)
+
+
+class ReverseBar(Bar):
+    """A bar which has a marker which bounces from side to side."""
+
+    def __init__(self, marker='#', left='|', right='|', fill=' ',
+                 fill_left=False):
+        """Creates a customizable progress bar.
+
+        marker - string or updatable object to use as a marker
+        left - string or updatable object to use as a left border
+        right - string or updatable object to use as a right border
+        fill - character to use for the empty part of the progress bar
+        fill_left - whether to fill from the left or the right
+        """
+        self.marker = marker
+        self.left = left
+        self.right = right
+        self.fill = fill
+        self.fill_left = fill_left
+
+
+class BouncingBar(Bar):
+    def update(self, pbar, width):
+        """Updates the progress bar and its subcomponents."""
+
+        left, marker, right = (format_updatable(i, pbar) for i in
+                               (self.left, self.marker, self.right))
+
+        width -= len(left) + len(right)
+
+        if pbar.finished: return '%s%s%s' % (left, width * marker, right)
+
+        position = int(pbar.currval % (width * 2 - 1))
+        if position > width: position = width * 2 - position
+        lpad = self.fill * (position - 1)
+        rpad = self.fill * (width - len(marker) - len(lpad))
+
+        # Swap if we want to bounce the other way
+        if not self.fill_left: rpad, lpad = lpad, rpad
+
+        return '%s%s%s%s%s' % (left, lpad, marker, rpad, right)

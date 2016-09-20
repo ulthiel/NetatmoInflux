@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 ##############################################################################
 # WeatherStats
-# Tiny Python scripts for general weather data management and analysis (with Netatmo support)
+# A collection of Python scripts for general weather data management and analysis with Netatmo support
 # (C) 2015-2016, Ulrich Thiel
 # thiel@mathematik.uni-stuttgart.de
 ##############################################################################

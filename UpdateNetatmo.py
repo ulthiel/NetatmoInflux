@@ -17,6 +17,7 @@ from lib import ColorPrint
 from lib import Netatmo
 import getpass
 from lib import DateHelper
+import progressbar
 
 
 dbconn = sqlite3.connect('Weather.db')
@@ -160,16 +161,17 @@ def UpdateNetatmoForAccount(account):
 		print "    Will retrieve data from "+DateHelper.DateFromTimestamp(maxtimestamp,None)+" to now"
 			
 		date_end = currenttime
-		timestampcounter = 0
-			
+		timestampcounter = 0 #will count number of retrieved timestamps
+		bar = progressbar.ProgressBar(widgets=[progressbar.SimpleProgress()],max_value=currenttime-maxtimestamp,).start()
 		while date_end > maxtimestamp:
 			date_begin = date_end - 1024*5*60 #this is a bit ugly. netatmo resolution is one data point every 5 minutes. we can retrieve at most 1024 data points per request. this is where this number comes from. on demand measurements may be missing but this should be fine
-			sys.stdout.write('\r' + '    Retrieving data in range '+DateHelper.DateFromTimestamp(date_begin,None)+' to '+DateHelper.DateFromTimestamp(date_end,None)) #timezone doesn't matter here for status message
-			sys.stdout.flush()
+			#sys.stdout.write('\r' + '    Retrieving data in range '+DateHelper.DateFromTimestamp(date_begin,None)+' to '+DateHelper.DateFromTimestamp(date_end,None)) #timezone doesn't matter here for status message
+			#sys.stdout.flush()
 			data = netatm.getMeasure(id[0],id[1],"max",measurandsstring,date_begin,date_end,None,"false")
 			timestampcounter = timestampcounter + len(data)
 			date_end = date_begin-1
-				
+			bar.update(currenttime-date_end)
+			
 			for timestamp in data.keys():
 				for i in range(0,len(sensorids)):
 					sensorid = sensorids[i]
@@ -178,10 +180,8 @@ def UpdateNetatmoForAccount(account):
 			
 				dbconn.commit()
 
-		sys.stdout.write('\n')
-		sys.stdout.flush()
-		print "    Done"
-		print "    Data for "+str(timestampcounter)+" time stamps received"
+		bar.finish()
+		ColorPrint.ColorPrint("    Done. Data for "+str(timestampcounter)+" time stamps received", "okblue")
 
 	
 #Update Netatmo 
