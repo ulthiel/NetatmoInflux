@@ -20,6 +20,8 @@ from lib import Netatmo
 import getpass
 from lib import DateHelper
 from lib import Tools
+import sys
+
 
 ##############################################################################
 #database connection
@@ -66,6 +68,10 @@ def UpdateNetatmoForAccount(account):
 			else:
 				locationid = locationid[0]
 				
+			dbcursor.execute("INSERT INTO Modules (Description) VALUES (\"Netatmo Module\")")
+
+			moduleid = (dbcursor.execute("SELECT last_insert_rowid();").fetchone())[0]
+				
 			sensorids = []
 			#set correct units
 			for measurand in netatm.measurands[id]:
@@ -104,19 +110,10 @@ def UpdateNetatmoForAccount(account):
 					elif netatm.pressureunits[id] == 2:
 						unit = "mmHg"
 					
-				dbcursor.execute("INSERT INTO Sensors (Measurand,Unit,Description,Calibration) VALUES (\""+measurand + "\",\""+unit+"\",\"Netatmo sensor\",0)")
+				dbcursor.execute("INSERT INTO Sensors (Measurand,Unit,Description,Calibration,Module,pph) VALUES (\""+measurand + "\",\""+unit+"\",\"Netatmo sensor\",0,"+str(moduleid)+",12)") #12 points per hour is Netatmo resolution
 				sensorid = (dbcursor.execute("SELECT last_insert_rowid();").fetchone())[0]
 				sensorids.append(sensorid)
 				
-			sensoridsstr = ""
-			for i in range(0,len(sensorids)):
-				sensoridsstr = sensoridsstr + str(sensorids[i])
-				if i < len(sensorids)-1:
-					sensoridsstr = sensoridsstr + ","
-			
-			dbcursor.execute("INSERT INTO Modules (SensorIds) VALUES (\""+sensoridsstr+"\")")
-
-			moduleid = (dbcursor.execute("SELECT last_insert_rowid();").fetchone())[0]
 			
 			#get first time stamp for module and set this as BeginTimestamp for location of module
 			measurandsstring = ""
@@ -128,7 +125,7 @@ def UpdateNetatmoForAccount(account):
 			data = netatm.getMeasure(id[0],id[1],"max",measurandsstring,None,None,None,"false")
 			minservertimestamp = min(map(int,data.keys()))
 			
-			dbcursor.execute("INSERT INTO ModuleLocations (ModuleId,BeginTimestamp,LocationId) VALUES ("+str(moduleid)+","+str(minservertimestamp)+","+str(locationid)+")")
+			dbcursor.execute("INSERT INTO ModuleLocations (ModuleId,BeginTimestamp,EndTimestamp,LocationId) VALUES ("+str(moduleid)+","+str(minservertimestamp)+","+str(2**63-1)+","+str(locationid)+")")
 					
 			if id[1] == None:
 				dbcursor.execute("INSERT INTO NetatmoModules (NetatmoDeviceId,ModuleId) VALUES (\""+id[0]+"\","+str(moduleid)+")")
@@ -148,8 +145,8 @@ def UpdateNetatmoForAccount(account):
 				
 		#now, update data
 		currenttime = DateHelper.CurrentTimestamp()
-		res = dbcursor.execute("SELECT SensorIds FROM Modules WHERE Id IS "+str(moduleid)).fetchone()[0]
-		sensorids = map(int, res.split(','))
+		res = dbcursor.execute("SELECT Id FROM Sensors WHERE Module IS "+str(moduleid)).fetchall()
+		sensorids = [ r[0] for r in res ]
 		measurands = []
 		for sensorid in sensorids:
 			measurands.append(dbcursor.execute("SELECT Measurand FROM Sensors WHERE Id IS "+str(sensorid)).fetchone()[0])
@@ -219,5 +216,6 @@ def UpdateNetatmo():
 
 	
 UpdateNetatmo()
+
 dbconn.commit()
 dbconn.close()

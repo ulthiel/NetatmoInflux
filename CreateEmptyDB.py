@@ -23,25 +23,19 @@ def CreateEmptyDB():
 			
 	dbcursor.execute(\
 		"CREATE TABLE \"Data\" (\n" \
-		"`Timestamp` INTEGER,\n" \
+		"`Timestamp` BIGINT,\n" \
 		"`Sensor` INTEGER,\n" \
-		"`Value` REAL,\n" \
-		#"`Year` INTEGER,\n" \
-		#"`Month` INTEGER,\n" \
-		#"`Day` INTEGER,\n" \
-		#"`Hour` INTEGER,\n" \
-		#"`Minute` INTEGER,\n" \
-		#"`Second` INTEGER,\n" \
+		"`Value` DECIMAL,\n" \
+		"`Year` SMALLINT,\n" \
+		"`Month` TINYINT,\n" \
+		"`Day` TINYINT,\n" \
+		"`Hour` TINYINT,\n" \
+		"`Minute` TINYINT,\n" \
+		"`Second` TINYINT,\n" \
 		"PRIMARY KEY(Timestamp,Sensor) ON CONFLICT REPLACE)"\
 	)
 	
-#	dbcursor.execute(\
-#		"CREATE TABLE \"Measurands\" (\n" \
-#		"`Id` INTEGER,\n" \
-#		"`Measurand` TEXT,\n" \
-#		"`Unit` TEXT,\n" \
-#		"PRIMARY KEY(Id))\n" \
-#	)
+	dbcursor.execute("CREATE INDEX idx ON Data (Timestamp ASC, Sensor ASC)")
 	
 	dbcursor.execute(\
 		"CREATE TABLE \"Sensors\" (\n" \
@@ -49,30 +43,33 @@ def CreateEmptyDB():
 		"`Measurand` TEXT,\n" \
 		"`Unit` TEXT,\n" \
 		"`Description` TEXT,\n" \
-		"`Calibration` NUMERIC,\n" \
+		"`Calibration` DECIMAL,\n" \
+		"`Module` INTEGER,\n" \
+		"`pph` INTEGER,\n" \
 		"PRIMARY KEY(Id))\n" \
 	)
 	
 	dbcursor.execute(\
 		"CREATE TABLE \"Modules\" (\n" \
 		"`Id` INTEGER,\n" \
-		"`SensorIds` TEXT,\n" \
+		"`Description` TEXT,\n" \
 		"PRIMARY KEY(Id))\n" \
 	)
 	
 	dbcursor.execute(\
 		"CREATE TABLE \"ModuleLocations\" (\n" \
 		"`ModuleId` INTEGER,\n" \
-		"`BeginTimestamp` INTEGER,\n" \
+		"`BeginTimestamp` BIGINT,\n" \
+		"`EndTimestamp` BIGINT,\n" \
 		"`LocationId` INTEGER)\n" \
 	)
 	
 	dbcursor.execute(\
 		"CREATE TABLE \"Locations\" (\n" \
 		"`Id` INTEGER,\n" \
-		"`PositionNorth` NUMERIC,\n" \
-		"`PositionEast` NUMERIC,\n" \
-		"`Elevation` NUMERIC,\n" \
+		"`PositionNorth` DECIMAL,\n" \
+		"`PositionEast` DECIMAL,\n" \
+		"`Elevation` SMALLINT,\n" \
 		"`Description` TEXT,\n" \
 		"`Timezone` TEXT,\n" \
 		"PRIMARY KEY(Id))\n" \
@@ -94,6 +91,49 @@ def CreateEmptyDB():
 		"`ModuleId` INTEGER,\n" \
 		"PRIMARY KEY(NetatmoDeviceId,NetatmoModuleId) ON CONFLICT REPLACE)"\
 	)
+	
+	dbcursor.execute(\
+		"CREATE VIEW DataWithTimeZone AS\
+		SELECT Data.Timestamp, Sensors.Id AS Sensor, Data.Value, \
+		Locations.Timezone, Data.Year \
+		FROM\
+    		Data\
+        INNER JOIN\
+    		Sensors\
+        ON Data.Sensor = Sensors.Id\
+		INNER JOIN\
+			ModuleLocations\
+		ON Sensors.Module = ModuleLocations.ModuleId\
+		INNER JOIN\
+			Locations\
+		ON ModuleLocations.LocationId = Locations.Id\
+		WHERE Data.Timestamp BETWEEN ModuleLocations.BeginTimestamp AND ModuleLocations.EndTimestamp\
+		ORDER BY Timestamp ASC")
+	
+#	dbcursor.execute(\
+#		"CREATE VIEW DataWithUTC AS\
+#		SELECT Data.Timestamp, Sensors.Id AS Sensor, Data.Value,\
+#		Locations.Timezone,\
+#		strftime('%Y', datetime(Data.Timestamp, 'unixepoch', 'utc')) As UTCYear,\
+#  		strftime('%m', datetime(Data.Timestamp, 'unixepoch', 'utc')) As UTCMonth,\
+#   		strftime('%d', datetime(Data.Timestamp, 'unixepoch', 'utc')) As UTCDay,\
+#   		strftime('%H', datetime(Data.Timestamp, 'unixepoch', 'utc')) As UTCHour,\
+#   		strftime('%M', datetime(Data.Timestamp, 'unixepoch', 'utc')) As UTCMinute,\
+#   		strftime('%S', datetime(Data.Timestamp, 'unixepoch', 'utc')) As UTCSecond\
+#		FROM\
+#    		Data\
+#        INNER JOIN\
+#    		Sensors\
+#        ON Data.Sensor = Sensors.Id\
+#		INNER JOIN\
+#			ModuleLocations\
+#		ON Sensors.Module = ModuleLocations.ModuleId\
+#		INNER JOIN\
+#			Locations\
+#		ON ModuleLocations.LocationId = Locations.Id\
+#		WHERE Data.Timestamp BETWEEN ModuleLocations.BeginTimestamp AND ModuleLocations.EndTimestamp\
+#		ORDER BY Timestamp ASC")
+
 	
 	dbconn.commit()
 	dbconn.close()
