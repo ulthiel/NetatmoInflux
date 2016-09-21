@@ -15,6 +15,7 @@ import sys
 import sqlite3
 import numpy
 import time
+import datetime
 from scipy.signal import argrelextrema
 from sets import Set
 from optparse import OptionParser
@@ -22,6 +23,7 @@ from itertools import chain
 import matplotlib.pyplot as plt
 from lib import ColorPrint
 from lib import DateHelper
+from lib import Tools
 
 ##############################################################################
 #parse options
@@ -150,6 +152,10 @@ def DatetimeFromTimestamp(sensor,timestamp):
 	timezone = timezones[GetSensorLocation(sensor,timestamp)]
 	return DateHelper.DatetimeFromTimestamp(timestamp,timezone)
 	
+##############################################################################
+def DatehourTupleFromTimestamp(sensor,timestamp):
+	s = DatetimeFromTimestamp(sensor,timestamp)
+	return (DateHelper.YearFromDatetime(s),DateHelper.MonthFromDatetime(s),DateHelper.DayFromDatetime(s),DateHelper.HourFromDatetime(s))
 	
 ##############################################################################
 #parse time filter options
@@ -369,6 +375,127 @@ def PrintGeneralSensorInfo(sensor):
 	print "  Measurand: \t" + measurand + " ("+unit+")"
 	print "  Calibration: \t" + str(calibration)
 	
+##############################################################################
+#Creates an array of dates and an array of datehours relative to the selections by the user
+def GetDateHours(years, months, days, hours, start, end):
+	
+	if start is not None:
+		startdate = datetime.datetime.strptime(start, "%Y-%m-%d")
+		startyear = startdate.year
+		startmonth = startdate.month
+		startday = startdate.day
+	
+	if end is not None:
+		enddate = datetime.datetime.strptime(end, "%Y-%m-%d")
+		endyear = enddate.year
+		endmonth = enddate.month
+		endday = enddate.day
+		
+	if start is None:
+		if years is not None:
+			startyear = min(years)
+		else:
+			if endyear is not None:
+				startyear = endyear
+			else:
+				raise MyError('Cannot determine date range')
+		if months is not None:
+			startmonth = min(months)
+		else:
+			startmonth = 1
+		
+		if days is not None:
+			startday = min(days)
+		else:
+			startday = 1
+			
+		startdate = datetime.datetime.strptime(str(startyear)+"-"+str(startmonth)+"-"+str(startday), "%Y-%m-%d")
+			
+	if end is None:
+		if years is not None:
+			endyear = max(years)
+		else:
+			if startyear is not None:
+				endyear = startyear
+			else:
+				raise MyError('Cannot determine date range')
+		if months is not None:
+			endmonth = max(months)
+		else:
+			endmonth = 12
+		if days is not None:
+			endday = max(days)
+		else:
+			endday = DateHelper.LastDayOfMonth(endyear, endmonth)
+			
+		enddate = datetime.datetime.strptime(str(endyear)+"-"+str(endmonth)+"-"+str(endday), "%Y-%m-%d")
+	
+	if years is None:
+		years = range(startyear, endyear+1)
+	if months is None:
+		months = range(1,13)
+	if days is None:
+		days = range(1,32)
+	if hours is None:
+		hours = range(0,24)
+		
+	datestmp = [ startdate + datetime.timedelta(days=d) for d in range( (enddate-startdate).days + 1) ]
+	
+	dates = [ (d.year,d.month,d.day) for d in datestmp if d.year in years and d.month in months and d.day in days]
+		
+	datehours = []
+	for d in dates:
+		for h in hours:
+			datehours.append((d[0],d[1],d[2],h))
+			
+	return [dates, datehours]
+	
+##############################################################################
+#Reads data
+def ReadData(sensor,years, months, days, hours, start, end):
+	
+	#if no year range is given, we pick all available years for sensor
+	if years is None:
+		mincoveredtimestamp = ((dbcursor.execute("SELECT MIN(Timestamp) FROM Data WHERE Sensor IS "+str(sensor))).fetchone())[0]
+		mincovereddatetime = DatetimeFromTimestamp(sensor, mincoveredtimestamp)
+		minyear = DateHelper.YearFromDatetime(mincovereddatetime)
+		maxcoveredtimestamp = ((dbcursor.execute("SELECT MAX(Timestamp) FROM Data WHERE Sensor IS "+str(sensor))).fetchone())[0]
+		maxcovereddatetime = DatetimeFromTimestamp(sensor, maxcoveredtimestamp)
+		maxyear = DateHelper.YearFromDatetime(maxcovereddatetime)
+		years = range(minyear,maxyear+1)
+		
+	slots = GetDateHours(years, months, days, hours, start, end)
+	dates = slots[0]
+	datehours = slots[1]	
+	print "  Selection: \t" + str(len(dates)) + " days, " + str(len(datehours)) + " hours"
+	
+	Tools.PrintWithoutNewline("  Reading data:\t0%  ")
+	data = dict()
+	locations = []
+	progresscounter = 0
+	numberofdatapoints = 0
+	calibration = ((dbcursor.execute("SELECT Calibration From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]
+	for datehour in datehours:
+		#this filtering is due to potentially different timezones a bit ugly. this solution is not the nicest and most efficient but it works.
+		#The thing is the following: the sensor might be in Kiribati (UTC+14) and we are currently in Baker Island (UTC-12). This is an offset of 26 hours (maximal offset between timezones). Hence, if we convert a date (without knowing its timezone) to a timestamp on this machine, we may be off by 26 hours (in either direction). this is why we subtract 93600 seconds from the minimal timestamp we produce for a datehour, and add 93600 seconds to the maximal timestamp we produce for a datehour
+		s = str(datehour[0])+"-"+str(datehour[1]).zfill(2)+"-"+str(datehour[2]).zfill(2)+" "+str(datehour[3]).zfill(2)+":00:00"
+		t = int(time.mktime(datetime.datetime.strptime(s, "%Y-%m-%d %H:%M:%S").timetuple()))
+		mintimestamp = t-93600
+		maxtimestamp = t+3600+93600
+		dbcursor.execute("SELECT Timestamp, Value FROM Data WHERE Sensor IS "+str(sensor)+" AND (Timestamp BETWEEN "+str(mintimestamp)+" AND "+str(maxtimestamp)+")")
+		res = dbcursor.fetchall()
+		if res == None:
+			continue
+		#filter our all results with correct datehour
+		resfiltered = [ r for r in res if DatehourTupleFromTimestamp(sensor,r[0]) == datehour ]
+		numberofdatapoints = numberofdatapoints + len(resfiltered)
+		calibratedres = [ (r[0],r[1]+calibration) for r in resfiltered ]	
+		data[datehour] = numpy.array(calibratedres, dtype=[('timestamp', numpy.uint32),('value',numpy.float64)])	
+		
+		Tools.PrintWithoutNewline("  Reading data:\t"+str(int(100.0*float(progresscounter)/float(len(datehours))))+"%")
+		progresscounter = progresscounter + 1
+		
+	
 
 ##############################################################################		
 #Overall stats
@@ -384,23 +511,7 @@ for sensor in sensors:
 		print ""
 		continue
 	
-	#we first determine the datehour range from selected time restriction
-	#if no year range is given, we pick all available years for sensor
-	if years is None:
-		mincoveredtimestamp = ((dbcursor.execute("SELECT MIN(Timestamp) FROM Data WHERE Sensor IS "+str(sensor))).fetchone())[0]
-		mincovereddatetime = DatetimeFromTimestamp(sensor, mincoveredtimestamp)
-		minyear = DateHelper.YearFromDatetime(mincovereddatetime)
-		maxcoveredtimestamp = ((dbcursor.execute("SELECT MAX(Timestamp) FROM Data WHERE Sensor IS "+str(sensor))).fetchone())[0]
-		maxcovereddatetime = DatetimeFromTimestamp(sensor, maxcoveredtimestamp)
-		maxyear = DateHelper.YearFromDatetime(maxcovereddatetime)
-		years = range(minyear,maxyear+1)
-		
-	tmp = DateHelper.GetDateHours(years, months, days, hours, start, end)
-	dates = tmp[0]
-	datehours = tmp[1]	
-	startdate = time.strftime("%Y-%m-%d", dates[0] + [0,0,0,0,0,0])
-	enddate = time.strftime("%Y-%m-%d", dates[len(dates)-1] + [0,0,0,0,0,0])
-	#print "  Range: \t" + startdate + " to " + enddate  + " ("+str(len(dates))+" days)"
+	data = ReadData(sensor,years, months, days, hours, start, end)
 	
 	sys.exit(0)
 	

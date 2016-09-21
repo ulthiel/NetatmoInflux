@@ -85,9 +85,9 @@ def LastDayOfMonth(y,m):
 def LastTimestampOfMonth(y,m):
 	return LastTimestampOfDate(str(y)+"-"+str(m)+"-"+str(LastDayOfMonth(y,m)))
 		
-#Returns first timestamp of datetime s (s in format Y-m-d H:m)
-def TimestampOfDatetime(s):
-	return time.mktime(datetime.datetime.strptime(s, "%Y-%m-%d %H:%M").timetuple())
+#Returns first timestamp of datehour s (s in format Y-m-d H)
+def TimestampOfDatehour(s):
+	return int(time.mktime(datetime.datetime.strptime(s, "%Y-%m-%d %H").timetuple()))
 
 
 ##############################################################################
@@ -99,76 +99,3 @@ def NumberOfDaysBetween(start, end):
 	delta = b - a
 	return delta.days 
 	
-##############################################################################
-def GetDateHours(years, months, days, hours, start, end):
-	
-	if start is not None:
-		startdate = datetime.datetime.strptime(start, "%Y-%m-%d")
-		startyear = startdate.year
-		startmonth = startdate.month
-		startday = startdate.day
-	
-	if end is not None:
-		enddate = datetime.datetime.strptime(end, "%Y-%m-%d")
-		endyear = enddate.year
-		endmonth = enddate.month
-		endday = enddate.day
-		
-	if start is None:
-		if years is not None:
-			startyear = min(years)
-		else:
-			if endyear is not None:
-				startyear = endyear
-			else:
-				raise MyError('Cannot determine date range')
-		if months is not None:
-			startmonth = min(months)
-		else:
-			startmonth = 1
-		
-		if days is not None:
-			startday = min(days)
-		else:
-			startday = 1
-			
-		startdate = datetime.datetime.strptime(str(startyear)+"-"+str(startmonth)+"-"+str(startday), "%Y-%m-%d")
-			
-	if end is None:
-		if years is not None:
-			endyear = max(years)
-		else:
-			if startyear is not None:
-				endyear = startyear
-			else:
-				raise MyError('Cannot determine date range')
-		if months is not None:
-			endmonth = max(months)
-		else:
-			endmonth = 12
-		if days is not None:
-			endday = max(days)
-		else:
-			endday = LastDayOfMonth(endyear, endmonth)
-			
-		enddate = datetime.datetime.strptime(str(endyear)+"-"+str(endmonth)+"-"+str(endday), "%Y-%m-%d")
-	
-	if years is None:
-		years = range(startyear, endyear+1)
-	if months is None:
-		months = range(1,13)
-	if days is None:
-		days = range(1,32)
-	if hours is None:
-		hours = range(0,24)
-		
-	datestmp = [ startdate + datetime.timedelta(days=d) for d in range( (enddate-startdate).days + 1) ]
-	
-	dates = [ [d.year,d.month,d.day] for d in datestmp if d.year in years and d.month in months and d.day in days]
-		
-	datehours = []
-	for d in dates:
-		for h in hours:
-			datehours.append(d + [h])
-			
-	return [dates, datehours]
