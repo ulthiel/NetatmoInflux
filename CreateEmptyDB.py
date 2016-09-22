@@ -109,6 +109,23 @@ def CreateEmptyDB():
 		ON ModuleLocations.LocationId = Locations.Id\
 		WHERE Data.Timestamp BETWEEN ModuleLocations.BeginTimestamp AND ModuleLocations.EndTimestamp\
 		ORDER BY Timestamp ASC")
+		
+		dbcursor.execute(\
+		"CREATE VIEW DataWithCalibration AS\
+		SELECT Data.Timestamp, Sensors.Id AS Sensor, (Data.Value+Sensors.Calibration) AS ValueCalibrated, Data.Year, Data.Month, Data.Day, Data.Hour, Data.Minute, Data.Second\
+		FROM\
+    		Data\
+        INNER JOIN\
+    		Sensors\
+        ON Data.Sensor = Sensors.Id\
+		INNER JOIN\
+			ModuleLocations\
+		ON Sensors.Module = ModuleLocations.ModuleId\
+		INNER JOIN\
+			Locations\
+		ON ModuleLocations.LocationId = Locations.Id\
+		WHERE Data.Timestamp BETWEEN ModuleLocations.BeginTimestamp AND ModuleLocations.EndTimestamp\
+		ORDER BY Year ASC, Month ASC, Day ASC, Hour ASC, Minute ASC, Second ASC")
 	
 #	dbcursor.execute(\
 #		"CREATE VIEW DataWithUTC AS\

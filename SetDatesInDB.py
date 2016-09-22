@@ -45,13 +45,12 @@ def SetDates(dbconn, dbcursor):
 	N = float(len(reswithdatetimes))
 	for r in reswithdatetimes:
 		s = r[3]		
-		dbcursor.execute("INSERT INTO Data (Timestamp,Sensor,Value,Year,Month,Day,Hour,Minute,Second,DateSet) VALUES ("+str(r[0])+","+str(r[1])+","+str(r[2])+","+str(DateHelper.YearFromDatetime(s))+", \
+		dbcursor.execute("INSERT INTO Data (Timestamp,Sensor,Value,Year,Month,Day,Hour,Minute,Second) VALUES ("+str(r[0])+","+str(r[1])+","+str(r[2])+","+str(DateHelper.YearFromDatetime(s))+", \
 			"+str(DateHelper.MonthFromDatetime(s))+", \
 			"+str(DateHelper.DayFromDatetime(s))+", \
 			"+str(DateHelper.HourFromDatetime(s))+", \
 			"+str(DateHelper.MinuteFromDatetime(s))+", \
-			"+str(DateHelper.SecondFromDatetime(s))+", \
-			1)")
+			"+str(DateHelper.SecondFromDatetime(s))+")")
 			
 		counter = counter + 1
 		Tools.PrintWithoutNewline("Setting dates: "+str(int(100.0*float(counter)/N))+"%   ")

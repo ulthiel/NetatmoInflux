@@ -94,68 +94,6 @@ for module in modules:
 	res = map(int, res.split(','))
 	for sensor in res:
 		sensors.append(sensor)	
-		
-##############################################################################
-#dictionary for mapping a sensor to its module
-modules = []
-moduleforsensor = dict()
-for sensor in sensors:
-	dbcursor.execute("SELECT Id,SensorIds From Modules")
-	res = dbcursor.fetchall()
-	for x in res:
-		mods = map(int, x[1].split(','))
-		if sensor in mods:
-			module = int(x[0])
-			moduleforsensor[sensor] = module
-			if not module in modules:
-				modules.append(module)
-			
-##############################################################################
-#create dictionary for module locations
-modulelocations = dict()
-locations = []
-for module in modules:
-	dbcursor.execute("SELECT BeginTimestamp,LocationId FROM ModuleLocations WHERE ModuleId IS "+str(module)+" ORDER BY BeginTimestamp ASC")
-	res = dbcursor.fetchall()
-	locs = dict()
-	for x in res:
-		loc = int(x[1])
-		locs[x[0]] = loc
-		if not loc in locations:
-			locations.append(loc)
-		
-	modulelocations[module] = locs
-
-	
-##############################################################################
-#create dictionary of timezones (indexed by locations)
-timezones = dict()
-for location in locations:
-	dbcursor.execute("SELECT Timezone FROM Locations WHERE Id IS "+str(location))
-	res = dbcursor.fetchone()[0]
-	timezones[location] = res
-
-##############################################################################
-#get sensor location at specific timestamp
-def GetSensorLocation(sensor, timestamp):
-	module = moduleforsensor[sensor]
-	location = 0
-	for t in modulelocations[module].keys():
-		if timestamp >= t:
-			location = modulelocations[module][t]
-			
-	return location
-	
-##############################################################################		
-#converts timestamp into a datetime (format YYYY-MM-DD HH:MM:SS) taking the timezone of the location of the sensor at the given timestamp into account	
-def DatetimeFromTimestamp(sensor,timestamp):
-	timezone = timezones[GetSensorLocation(sensor,timestamp)]
-	return DateHelper.DatetimeFromTimestamp(timestamp,timezone)
-	
-##############################################################################
-def DatehourTupleFromTimestamp(sensor,timestamp):
-	s = DatetimeFromTimestamp(sensor,timestamp)
-	return (DateHelper.YearFromDatetime(s),DateHelper.MonthFromDatetime(s),DateHelper.DayFromDatetime(s),DateHelper.HourFromDatetime(s))
 	
 ##############################################################################
 #parse time filter options
@@ -171,41 +109,6 @@ if months is not None:
 if years is not None:
 	years = parse_range_list(years)
 	
-##############################################################################
-def GetSensorQuality(sensor, datehours, verbose=None):
-	
-	if verbose is None:	
-		verbose = False
-	
-	count = 0
-	missingdatehours = []
-	numdatapoints = 0
-	for e in datehours:
-		y = e[0]
-		m = e[1]
-		d = e[2]
-		h = e[3]
-		starttimestamp = TimestampOfDatetime(str(y)+"-"+str(m)+"-"+str(d)+" "+str(h)+":00")
-		stoptimestamp = TimestampOfDatetime(str(y)+"-"+str(m)+"-"+str(d)+" "+str(h)+":59")+60.0
-		res = (dbcursor.execute("SELECT COUNT(Timestamp) FROM Data WHERE Sensor IS "+str(sensor)+' AND Timestamp>='+str(starttimestamp)+' AND Timestamp<'+str(stoptimestamp)+' ORDER BY Timestamp ASC').fetchone())[0]
-		if res is None or res == 0:
-			missingdatehours.append(e)
-		else:
-			numdatapoints = numdatapoints + int(res)
-		count = count + 1
-		
-	#quality
-	quality = 100.0*(float(len(datehours)-len(missingdatehours))/float(len(datehours)))
-	
-	if verbose is not None and verbose:	
-		print "Data points: \t" + str(numdatapoints)
-	
-		if quality < 90:
-			print "Data quality: \t" + bcolors.FAIL + str(round(quality,3)) + "%" + bcolors.ENDC + " (" + str(len(datehours)-len(missingdatehours)) + "/" + str(len(datehours)) + ")"
-		else:
-			print "Data quality: \t" + bcolors.OKGREEN + str(round(quality,3)) + "%" + bcolors.ENDC + " (" + str(len(datehours)-len(missingdatehours)) + "/" + str(len(datehours)) + ")"
-	
-	return [quality, missingdatehours, numdatapoints]
 	
 ##############################################################################
 def Analyze(sensor, datehours, verbose=None):
@@ -368,12 +271,15 @@ def PrintGeneralSensorInfo(sensor):
 	measurand = ((dbcursor.execute("SELECT Measurand From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]
 	unit = ((dbcursor.execute("SELECT Unit From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]
 	calibration = ((dbcursor.execute("SELECT Calibration From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]	
-	description = timezone = ((dbcursor.execute("SELECT Description From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]	
+	description = ((dbcursor.execute("SELECT Description From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]	
+	module = ((dbcursor.execute("SELECT Module From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]	
+	pph = ((dbcursor.execute("SELECT pph FROM Sensors WHERE Id IS "+str(sensor))).fetchone())[0]
 	
-	print "Sensor ID:\t" + str(sensor)
-	print "  Module: \t" + str(moduleforsensor[sensor])
+	print "Sensor: \t" + str(sensor)
+	print "  Module: \t" + str(module)
 	print "  Measurand: \t" + measurand + " ("+unit+")"
 	print "  Calibration: \t" + str(calibration)
+	print "  Resolution: \t" + str(pph) + " pph"
 	
 ##############################################################################
 #Creates an array of dates and an array of datehours relative to the selections by the user
@@ -450,52 +356,73 @@ def GetDateHours(years, months, days, hours, start, end):
 			
 	return [dates, datehours]
 	
+	
 ##############################################################################
 #Reads data
 def ReadData(sensor,years, months, days, hours, start, end):
 	
 	#if no year range is given, we pick all available years for sensor
 	if years is None:
-		mincoveredtimestamp = ((dbcursor.execute("SELECT MIN(Timestamp) FROM Data WHERE Sensor IS "+str(sensor))).fetchone())[0]
-		mincovereddatetime = DatetimeFromTimestamp(sensor, mincoveredtimestamp)
-		minyear = DateHelper.YearFromDatetime(mincovereddatetime)
-		maxcoveredtimestamp = ((dbcursor.execute("SELECT MAX(Timestamp) FROM Data WHERE Sensor IS "+str(sensor))).fetchone())[0]
-		maxcovereddatetime = DatetimeFromTimestamp(sensor, maxcoveredtimestamp)
-		maxyear = DateHelper.YearFromDatetime(maxcovereddatetime)
+		minyear = ((dbcursor.execute("SELECT MIN(Year) FROM Data WHERE Sensor IS "+str(sensor))).fetchone())[0]
+		maxyear = ((dbcursor.execute("SELECT MAX(Year) FROM Data WHERE Sensor IS "+str(sensor))).fetchone())[0]
 		years = range(minyear,maxyear+1)
 		
 	slots = GetDateHours(years, months, days, hours, start, end)
 	dates = slots[0]
 	datehours = slots[1]	
-	print "  Selection: \t" + str(len(dates)) + " days, " + str(len(datehours)) + " hours"
+	print "  Selection: \t" + str(len(dates)) + " days/" + str(len(datehours)) + " hours"
 	
-	Tools.PrintWithoutNewline("  Reading data:\t0%  ")
+	#I don't know why but the filtering of data by datehours is MUCH quicker in Python than in sql. So, we retrieve the data for all datemonths and do the further filtering in Python.	
+	datemonths = []
+	for date in dates:
+		d = [date[0],date[1]]
+		if not d in datemonths:
+			datemonths.append(d)
+	
+	Tools.PrintWithoutNewline("  Reading data  ")	
 	data = dict()
-	locations = []
+	N = float(len(datehours))
 	progresscounter = 0
 	numberofdatapoints = 0
-	calibration = ((dbcursor.execute("SELECT Calibration From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]
-	for datehour in datehours:
-		#this filtering is due to potentially different timezones a bit ugly. this solution is not the nicest and most efficient but it works.
-		#The thing is the following: the sensor might be in Kiribati (UTC+14) and we are currently in Baker Island (UTC-12). This is an offset of 26 hours (maximal offset between timezones). Hence, if we convert a date (without knowing its timezone) to a timestamp on this machine, we may be off by 26 hours (in either direction). this is why we subtract 93600 seconds from the minimal timestamp we produce for a datehour, and add 93600 seconds to the maximal timestamp we produce for a datehour
-		s = str(datehour[0])+"-"+str(datehour[1]).zfill(2)+"-"+str(datehour[2]).zfill(2)+" "+str(datehour[3]).zfill(2)+":00:00"
-		t = int(time.mktime(datetime.datetime.strptime(s, "%Y-%m-%d %H:%M:%S").timetuple()))
-		mintimestamp = t-93600
-		maxtimestamp = t+3600+93600
-		dbcursor.execute("SELECT Timestamp, Value FROM Data WHERE Sensor IS "+str(sensor)+" AND (Timestamp BETWEEN "+str(mintimestamp)+" AND "+str(maxtimestamp)+")")
+	for datemonth in datemonths:
+		dbcursor.execute("SELECT Timestamp,ValueCalibrated,Year,Month,Day,Hour,Minute,Second FROM DataWithCalibration WHERE Sensor IS "+str(sensor)+" AND Year IS "+str(datemonth[0])+" AND Month IS "+str(datemonth[1])+" ORDER BY Timestamp ASC")
 		res = dbcursor.fetchall()
-		if res == None:
+		datehoursfordatemonth = [ d for d in datehours if d[0] == datemonth[0] and d[1] == datemonth[1] ]
+		if len(res) == 0:
+			progresscounter = progresscounter + len(datehoursfordatemonth) 
+			Tools.PrintWithoutNewline("  Reading data:\t"+str(int(100.0*float(progresscounter)/float(N)))+"%")
 			continue
-		#filter our all results with correct datehour
-		resfiltered = [ r for r in res if DatehourTupleFromTimestamp(sensor,r[0]) == datehour ]
-		numberofdatapoints = numberofdatapoints + len(resfiltered)
-		calibratedres = [ (r[0],r[1]+calibration) for r in resfiltered ]	
-		data[datehour] = numpy.array(calibratedres, dtype=[('timestamp', numpy.uint32),('value',numpy.float64)])	
-		
-		Tools.PrintWithoutNewline("  Reading data:\t"+str(int(100.0*float(progresscounter)/float(len(datehours))))+"%")
-		progresscounter = progresscounter + 1
-		
+		for datehour in datehoursfordatemonth:
+			filteredres = [ (r[0],r[1]) for r in res if r[2] == datehour[0] and r[3] == datehour[1] and r[4] == datehour[2] and r[5] == datehour[3] ]
+			if len(filteredres) == 0:
+				continue
+			numberofdatapoints = numberofdatapoints + len(filteredres)
+			data[datehour] = numpy.array(filteredres, dtype=[('timestamp', numpy.uint32),('value',numpy.float64)])	
+			
+			progresscounter = progresscounter + 1
+			Tools.PrintWithoutNewline("  Reading data:\t"+str(int(100.0*float(progresscounter)/float(N)))+"%")
 	
+	Tools.PrintWithoutNewline("  Reading data:\t100%")
+	Tools.PrintWithoutNewline("")
+	
+	#sensor quality
+	pph = ((dbcursor.execute("SELECT pph FROM Sensors WHERE Id IS "+str(sensor))).fetchone())[0]
+	nonsufficientdatehours = []
+	for datehour in datehours:
+		if not datehour in data.keys() or len(data[datehour]) < pph-1:
+			nonsufficientdatehours.append(datehour)
+			
+	quality = 100.0-100.0*float(len(nonsufficientdatehours))/float(len(datehours))
+	
+	if quality > 90:
+		color = "okgreen"
+	else:
+		color = "warning"
+	
+	ColorPrint.ColorPrint("  Data quality:\t"+str(int(quality))+"% ("+str(len(datehours)-len(nonsufficientdatehours))+"/"+str(len(datehours))+")", color)
+		
+	return [datehours,data,quality]
+
 
 ##############################################################################		
 #Overall stats
@@ -511,7 +438,10 @@ for sensor in sensors:
 		print ""
 		continue
 	
-	data = ReadData(sensor,years, months, days, hours, start, end)
+	res = ReadData(sensor,years, months, days, hours, start, end)
+	datehours = res[0]
+	data = res[1]
+	quality = res[2]
 	
 	sys.exit(0)
 	
