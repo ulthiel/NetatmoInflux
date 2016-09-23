@@ -97,13 +97,13 @@ for module in modules:
 		
 ##############################################################################
 #datetime for timestamp taking timezone of sensor location into account
-timezoneforsensor = dict()
-for sensor in sensors:
-	module = (dbcursor.execute("SELECT Module FROM Sensors WHERE Id IS "+str(sensor))).fetchone()[0]
-	dbcursor.execute("SELECT BeginTimestamp, EndTimestamp, Timezone FROM ModuleLocationsFull WHERE Module IS "+str(module))
-	res = dbcursor.fetchall()
-	for loca
-def DatetimeFromTimestamp(timestamp, sensor):
+#timezoneforsensor = dict()
+#for sensor in sensors:
+#	module = (dbcursor.execute("SELECT Module FROM Sensors WHERE Id IS "+str(sensor))).fetchone()[0]
+#	dbcursor.execute("SELECT BeginTimestamp, EndTimestamp, Timezone FROM ModuleLocationsFull WHERE Module IS "+str(module))
+#	res = dbcursor.fetchall()
+	#for loca
+#def DatetimeFromTimestamp(timestamp, sensor):
 
 	
 ##############################################################################
@@ -134,7 +134,7 @@ def Analyze(sensor, data):
 	totalmaxdatetimes = []
 	totalmaxdatehours = []
 	for t in totalmaxtimestamps:
-		dbcursor.execute("Select Year,Month,Day,Hour,Minute,Second FROM Data WHERE Timestamp IS "+str(t)+" AND Sensor IS "+str(sensor))
+		dbcursor.execute("Select Year,Month,Day,Hour,Minute,Second FROM Data"+str(sensor)+" WHERE Timestamp IS "+str(t))
 		res = dbcursor.fetchone()
 		s = str(res[0])+"-"+str(res[1]).zfill(2)+"-"+str(res[2]).zfill(2)+" "+str(res[3]).zfill(2)+":"+str(res[4]).zfill(2)+":"+str(res[5]).zfill(2)
 		totalmaxdatetimes.append(s)
@@ -158,7 +158,7 @@ def Analyze(sensor, data):
 	totalmindatetimes = []
 	totalmindatehours = []
 	for t in totalmintimestamps:
-		dbcursor.execute("Select Year,Month,Day,Hour,Minute,Second FROM Data WHERE Timestamp IS "+str(t)+" AND Sensor IS "+str(sensor))
+		dbcursor.execute("Select Year,Month,Day,Hour,Minute,Second FROM Data"+str(sensor)+" WHERE Timestamp IS "+str(t))
 		res = dbcursor.fetchone()
 		s = str(res[0])+"-"+str(res[1]).zfill(2)+"-"+str(res[2]).zfill(2)+" "+str(res[3]).zfill(2)+":"+str(res[4]).zfill(2)+":"+str(res[5]).zfill(2)
 		totalmindatetimes.append(s)
@@ -325,8 +325,8 @@ def ReadData(sensor,years, months, days, hours, start, end):
 	
 	#if no year range is given, we pick all available years for sensor
 	if years is None:
-		minyear = ((dbcursor.execute("SELECT MIN(Year) FROM Data WHERE Sensor IS "+str(sensor))).fetchone())[0]
-		maxyear = ((dbcursor.execute("SELECT MAX(Year) FROM Data WHERE Sensor IS "+str(sensor))).fetchone())[0]
+		minyear = ((dbcursor.execute("SELECT MIN(Year) FROM Data"+str(sensor))).fetchone())[0]
+		maxyear = ((dbcursor.execute("SELECT MAX(Year) FROM Data"+str(sensor))).fetchone())[0]
 		years = range(minyear,maxyear+1)
 		
 	slots = GetDateHours(years, months, days, hours, start, end)
@@ -347,7 +347,7 @@ def ReadData(sensor,years, months, days, hours, start, end):
 	progresscounter = 0
 	numberofdatapoints = 0
 	for datemonth in datemonths:
-		dbcursor.execute("SELECT Timestamp,ValueCalibrated,Year,Month,Day,Hour,Minute,Second FROM DataWithCalibration WHERE Sensor IS "+str(sensor)+" AND Year IS "+str(datemonth[0])+" AND Month IS "+str(datemonth[1])+" ORDER BY Timestamp ASC")
+		dbcursor.execute("SELECT Timestamp,ValueCalibrated,Year,Month,Day,Hour,Minute,Second FROM Data"+str(sensor)+"Full WHERE Year IS "+str(datemonth[0])+" AND Month IS "+str(datemonth[1])+" ORDER BY Timestamp ASC")
 		res = dbcursor.fetchall()
 		datehoursfordatemonth = [ d for d in datehours if d[0] == datemonth[0] and d[1] == datemonth[1] ]
 		if len(res) == 0:
@@ -393,7 +393,7 @@ for sensor in sensors:
 	PrintGeneralSensorInfo(sensor)
 		
 	#Check if data available
-	numpoints = ((dbcursor.execute("SELECT COUNT(Timestamp) FROM Data WHERE Sensor IS "+str(sensor))).fetchone())[0]
+	numpoints = ((dbcursor.execute("SELECT COUNT(Timestamp) FROM Data"+str(sensor))).fetchone())[0]
 
 	if numpoints == 0:	
 		ColorPrint.ColorPrint("  No data available", "error")
