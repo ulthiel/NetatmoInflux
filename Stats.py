@@ -94,6 +94,17 @@ for module in modules:
 	res = map(int, res.split(','))
 	for sensor in res:
 		sensors.append(sensor)	
+		
+##############################################################################
+#datetime for timestamp taking timezone of sensor location into account
+timezoneforsensor = dict()
+for sensor in sensors:
+	module = (dbcursor.execute("SELECT Module FROM Sensors WHERE Id IS "+str(sensor))).fetchone()[0]
+	dbcursor.execute("SELECT BeginTimestamp, EndTimestamp, Timezone FROM ModuleLocationsFull WHERE Module IS "+str(module))
+	res = dbcursor.fetchall()
+	for loca
+def DatetimeFromTimestamp(timestamp, sensor):
+
 	
 ##############################################################################
 #parse time filter options

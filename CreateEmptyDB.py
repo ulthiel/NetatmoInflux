@@ -20,22 +20,7 @@ import getpass
 def CreateEmptyDB():
 	dbconn = sqlite3.connect('Weather.db')
 	dbcursor = dbconn.cursor()
-			
-	dbcursor.execute(\
-		"CREATE TABLE \"Data\" (\n" \
-		"`Timestamp` BIGINT,\n" \
-		"`Sensor` INTEGER,\n" \
-		"`Value` DECIMAL,\n" \
-		"`Year` SMALLINT,\n" \
-		"`Month` TINYINT,\n" \
-		"`Day` TINYINT,\n" \
-		"`Hour` TINYINT,\n" \
-		"`Minute` TINYINT,\n" \
-		"`Second` TINYINT,\n" \
-		"PRIMARY KEY(Timestamp,Sensor) ON CONFLICT REPLACE)"\
-	)
-	
-	dbcursor.execute("CREATE INDEX idx ON Data (Timestamp ASC, Sensor ASC)")
+
 	
 	dbcursor.execute(\
 		"CREATE TABLE \"Sensors\" (\n" \
@@ -92,65 +77,21 @@ def CreateEmptyDB():
 		"PRIMARY KEY(NetatmoDeviceId,NetatmoModuleId) ON CONFLICT REPLACE)"\
 	)
 	
-	dbcursor.execute(\
-		"CREATE VIEW DataWithTimeZone AS\
-		SELECT Data.Timestamp, Sensors.Id AS Sensor, Data.Value, \
-		Locations.Timezone, Data.Year \
-		FROM\
-    		Data\
-        INNER JOIN\
-    		Sensors\
-        ON Data.Sensor = Sensors.Id\
-		INNER JOIN\
-			ModuleLocations\
-		ON Sensors.Module = ModuleLocations.ModuleId\
-		INNER JOIN\
-			Locations\
-		ON ModuleLocations.LocationId = Locations.Id\
-		WHERE Data.Timestamp BETWEEN ModuleLocations.BeginTimestamp AND ModuleLocations.EndTimestamp\
-		ORDER BY Timestamp ASC")
-		
-		dbcursor.execute(\
-		"CREATE VIEW DataWithCalibration AS\
-		SELECT Data.Timestamp, Sensors.Id AS Sensor, (Data.Value+Sensors.Calibration) AS ValueCalibrated, Data.Year, Data.Month, Data.Day, Data.Hour, Data.Minute, Data.Second\
-		FROM\
-    		Data\
-        INNER JOIN\
-    		Sensors\
-        ON Data.Sensor = Sensors.Id\
-		INNER JOIN\
-			ModuleLocations\
-		ON Sensors.Module = ModuleLocations.ModuleId\
-		INNER JOIN\
-			Locations\
-		ON ModuleLocations.LocationId = Locations.Id\
-		WHERE Data.Timestamp BETWEEN ModuleLocations.BeginTimestamp AND ModuleLocations.EndTimestamp\
-		ORDER BY Year ASC, Month ASC, Day ASC, Hour ASC, Minute ASC, Second ASC")
-	
-#	dbcursor.execute(\
-#		"CREATE VIEW DataWithUTC AS\
-#		SELECT Data.Timestamp, Sensors.Id AS Sensor, Data.Value,\
-#		Locations.Timezone,\
-#		strftime('%Y', datetime(Data.Timestamp, 'unixepoch', 'utc')) As UTCYear,\
-#  		strftime('%m', datetime(Data.Timestamp, 'unixepoch', 'utc')) As UTCMonth,\
-#   		strftime('%d', datetime(Data.Timestamp, 'unixepoch', 'utc')) As UTCDay,\
-#   		strftime('%H', datetime(Data.Timestamp, 'unixepoch', 'utc')) As UTCHour,\
-#   		strftime('%M', datetime(Data.Timestamp, 'unixepoch', 'utc')) As UTCMinute,\
-#   		strftime('%S', datetime(Data.Timestamp, 'unixepoch', 'utc')) As UTCSecond\
-#		FROM\
-#    		Data\
-#        INNER JOIN\
-#    		Sensors\
-#        ON Data.Sensor = Sensors.Id\
-#		INNER JOIN\
-#			ModuleLocations\
-#		ON Sensors.Module = ModuleLocations.ModuleId\
-#		INNER JOIN\
-#			Locations\
-#		ON ModuleLocations.LocationId = Locations.Id\
-#		WHERE Data.Timestamp BETWEEN ModuleLocations.BeginTimestamp AND ModuleLocations.EndTimestamp\
-#		ORDER BY Timestamp ASC")
 
+		
+	dbcursor.execute("CREATE VIEW ModuleLocationsFull AS\
+		SELECT Sensors.Id, ModuleLocations.BeginTimestamp, \
+		ModuleLocations.EndTimestamp, ModuleLocations.LocationId, \
+		Locations.Description, Locations.Timezone\
+		FROM Sensors\
+		INNER JOIN\
+			ModuleLocations\
+		ON\
+			ModuleLocations.ModuleId = Sensors.Module\
+		INNER JOIN	\
+			Locations\
+		ON\
+			ModuleLocations.LocationId = Locations.Id")
 	
 	dbconn.commit()
 	dbconn.close()
