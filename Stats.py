@@ -37,6 +37,8 @@ parser.add_option("--years", dest="years",help="Years (e.g., --years=2012,2014-2
 parser.add_option("--start", dest="start",help="Start date (e.g., --start=2014-05-24)")
 parser.add_option("--end", dest="end",help="End date (e.g., --end=2015-05-24)")
 parser.add_option("--missing", action="store_true", dest="printmissing",help="Print missing data", default=False)
+parser.add_option("--yearly", action="store_true", dest="yearlystats",help="Compute yearly data", default=False)
+parser.add_option("--monthly", action="store_true", dest="monthlystats",help="Compute monthly data", default=False)
 (options, args) = parser.parse_args()
 sensors = options.sensors
 modules = options.modules
@@ -47,6 +49,8 @@ years = options.years
 start = options.start
 end = options.end
 printmissing = options.printmissing
+yearlystats = options.yearlystats
+monthlystats = options.monthlystats
 
 	
 ##############################################################################
@@ -122,8 +126,24 @@ if years is not None:
 	
 	
 ##############################################################################
-def Analyze(sensor, data):
+def Analyze(sensor, datehours, data):
 		
+	#sensor quality
+	pph = ((dbcursor.execute("SELECT pph FROM Sensors WHERE Id IS "+str(sensor))).fetchone())[0]
+	nonsufficientdatehours = []
+	for datehour in datehours:
+		if not datehour in data.keys() or len(data[datehour]) < pph-1:
+			nonsufficientdatehours.append(datehour)
+			
+	quality = 100.0-100.0*float(len(nonsufficientdatehours))/float(len(datehours))
+	
+	if quality > 90:
+		color = "okgreen"
+	else:
+		color = "warning"
+	
+	ColorPrint.ColorPrint("    Quality:  \t"+str(int(quality))+"% ("+str(len(datehours)-len(nonsufficientdatehours))+"/"+str(len(datehours))+")", color)
+	
 	#total data
 	totaldata = numpy.concatenate([data[d] for d in data.keys()])
 	
@@ -142,7 +162,7 @@ def Analyze(sensor, data):
 		if not sh in totalmaxdatehours:
 			totalmaxdatehours.append(sh)
 	
-	out = "  Maximum: \t" + str(totalmax) + " ("
+	out = "    Maximum: \t" + str(totalmax) + " ("
 	for i in range(0,len(totalmaxdatehours)):
 		out = out + totalmaxdatehours[i]
 		if i < len(totalmaxdatehours)-1:
@@ -166,7 +186,7 @@ def Analyze(sensor, data):
 		if not sh in totalmindatehours:
 			totalmindatehours.append(sh)
 	
-	out = "  Minimum: \t" + str(totalmin) + " ("
+	out = "    Minimum: \t" + str(totalmin) + " ("
 	for i in range(0,len(totalmindatehours)):
 		out = out + totalmindatehours[i]
 		if i < len(totalmindatehours)-1:
@@ -177,7 +197,7 @@ def Analyze(sensor, data):
 	#total average
 	totalavg = totaldata['value'].mean()
 	totalsigma = totaldata['value'].std()
-	print "  Average:\t" + str(round(totalavg,3)) + " (σ=" + str(round(totalsigma,3))+")"
+	print "    Average:\t" + str(round(totalavg,3)) + " (σ=" + str(round(totalsigma,3))+")"
 	
 	#daily data
 	dates = list(set([ (d[0],d[1],d[2]) for d in data.keys() ]))
@@ -192,12 +212,12 @@ def Analyze(sensor, data):
 	dailymax = numpy.array([ (date, dailydata[date]['value'].max()) for date in dates], dtype=[('date', (numpy.int32,(1,3))), ('value',numpy.float64)])
 	dailymaxavg = dailymax['value'].mean()
 	dailymaxsigma = dailymax['value'].std()
-	print "  Daily max:\t" + str(round(dailymaxavg,3)) + " (σ=" + str(round(dailymaxsigma,3))+")"	
+	print "    Daily max:\t" + str(round(dailymaxavg,3)) + " (σ=" + str(round(dailymaxsigma,3))+")"	
 	
 	dailymin = numpy.array([ (date, dailydata[date]['value'].min()) for date in dates], dtype=[('date', (numpy.int32,(1,3))), ('value',numpy.float64)])
 	dailyminavg = dailymin['value'].mean()
 	dailyminsigma = dailymin['value'].std()
-	print "  Daily min:\t" + str(round(dailyminavg,3)) + " (σ=" + str(round(dailyminsigma,3))+")"	
+	print "    Daily min:\t" + str(round(dailyminavg,3)) + " (σ=" + str(round(dailyminsigma,3))+")"	
 	
 	
 	#month data
@@ -549,7 +569,8 @@ def ReadData(sensor,years, months, days, hours, userstart, userend):
 		for h in hours:
 			datehours.append((d[0],d[1],d[2],h))
 	
-	print "  Selection: \t" + str(len(dates)) + " days/" + str(len(datehours)) + " hours between " + str(start)[0:10] + " and " + str(end)[0:10]
+	print " \n  Overall statistics:"
+	print "    Selection: \t" + str(len(dates)) + " days/" + str(len(datehours)) + " hours between " + str(start)[0:10] + " and " + str(end)[0:10]
 	
 	
 	
@@ -560,7 +581,7 @@ def ReadData(sensor,years, months, days, hours, userstart, userend):
 		if not d in datemonths:
 			datemonths.append(d)
 	
-	Tools.PrintWithoutNewline("  Reading data  ")	
+	Tools.PrintWithoutNewline("    Reading:")	
 	data = dict()
 	N = float(len(datehours))
 	progresscounter = 0
@@ -571,7 +592,7 @@ def ReadData(sensor,years, months, days, hours, userstart, userend):
 		datehoursfordatemonth = [ d for d in datehours if d[0] == datemonth[0] and d[1] == datemonth[1] ]
 		if len(res) == 0:
 			progresscounter = progresscounter + len(datehoursfordatemonth) 
-			Tools.PrintWithoutNewline("  Reading data:\t"+str(int(100.0*float(progresscounter)/float(N)))+"%")
+			Tools.PrintWithoutNewline("    Reading:\t"+str(int(100.0*float(progresscounter)/float(N)))+"%")
 			continue
 		for datehour in datehoursfordatemonth:
 			filteredres = [ (r[0],r[1]) for r in res if r[2] == datehour[0] and r[3] == datehour[1] and r[4] == datehour[2] and r[5] == datehour[3] ]
@@ -581,28 +602,12 @@ def ReadData(sensor,years, months, days, hours, userstart, userend):
 			data[datehour] = numpy.array(filteredres, dtype=[('timestamp', numpy.uint32),('value',numpy.float64)])	
 			
 			progresscounter = progresscounter + 1
-			Tools.PrintWithoutNewline("  Reading data:\t"+str(int(100.0*float(progresscounter)/float(N)))+"%")
+			Tools.PrintWithoutNewline("    Reading:\t"+str(int(100.0*float(progresscounter)/float(N)))+"%")
 	
-	Tools.PrintWithoutNewline("  Reading data:\t100%")
+	Tools.PrintWithoutNewline("    Reading:\t100%")
 	Tools.PrintWithoutNewline("")
-	
-	#sensor quality
-	pph = ((dbcursor.execute("SELECT pph FROM Sensors WHERE Id IS "+str(sensor))).fetchone())[0]
-	nonsufficientdatehours = []
-	for datehour in datehours:
-		if not datehour in data.keys() or len(data[datehour]) < pph-1:
-			nonsufficientdatehours.append(datehour)
-			
-	quality = 100.0-100.0*float(len(nonsufficientdatehours))/float(len(datehours))
-	
-	if quality > 90:
-		color = "okgreen"
-	else:
-		color = "warning"
-	
-	ColorPrint.ColorPrint("  Data quality:\t"+str(int(quality))+"% ("+str(len(datehours)-len(nonsufficientdatehours))+"/"+str(len(datehours))+")", color)
 		
-	return [datehours,data,quality]
+	return [datehours,data]
 
 
 ##############################################################################		
@@ -636,8 +641,32 @@ for sensor in sensors:
 		continue
 	datehours = res[0]
 	data = res[1]
-	quality = res[2]		
-	Analyze(sensor, data)
+	Analyze(sensor, datehours, data)
+	
+	
+	if yearlystats:
+		for y in sorted(list(set([d[0] for d in datehours])), key=int):
+			ydatehours = [ d for d in datehours if d[0] == y ]
+			ydata = dict()	
+			for d in ydatehours:
+				if d in data.keys():
+					ydata[d] = data[d]
+			print ""
+			print "  Statistics for " + str(y) + ":"
+ 			Analyze(sensor, ydatehours, ydata)	
+ 			
+ 	if monthlystats:
+ 		for y in sorted(list(set([d[0] for d in datehours])), key=int):
+			for m in sorted(list(set([d[1] for d in datehours if d[0] == y])), key=int):
+				mdatehours = [ d for d in datehours if d[0] == y and d[1] == m ]
+				mdata = dict()	
+				for d in mdatehours:
+					if d in data.keys():
+						mdata[d] = data[d]
+				print ""
+				print "  Statistics for " + str(m).zfill(2) + "-" + str(y) + ":"
+ 				Analyze(sensor, mdatehours, mdata)	
+			
 	
 	if len(sensors) > 1:
 		print ""
