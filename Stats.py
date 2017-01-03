@@ -225,116 +225,335 @@ def Analyze(sensor, data):
 	#plt.show()
 	
 	
-##############################################################################
-#General info about sensor
-def PrintGeneralSensorInfo(sensor):
 	
+##############################################################################
+#Reads data
+def ReadData(sensor,years, months, days, hours, userstart, userend):
+	
+	#we first create an array of datehours reflecting the user selection. this is actually a bit tricky somehow.
+	
+	#minimum date available for sensor
+	minyear = ((dbcursor.execute("SELECT MIN(Year) FROM Data"+str(sensor))).fetchone())[0]
+	minmonth = ((dbcursor.execute("SELECT MIN(Month) FROM Data"+str(sensor)+" WHERE YEAR IS "+str(minyear))).fetchone())[0]
+	minday = ((dbcursor.execute("SELECT MIN(Day) FROM Data"+str(sensor)+" WHERE Year IS "+str(minyear)+" AND Month IS "+str(minmonth))).fetchone())[0]
+	mindate = str(minyear)+"-"+str(minmonth).zfill(2)+"-"+str(minday).zfill(2)
+	mindate = datetime.datetime.strptime(mindate, "%Y-%m-%d")
+	
+	#user selected start date
+	if userstart != None:
+		userstartyear = int(userstart[0:4])
+		userstartmonth = int(userstart[5:7])
+		userstartday = int(userstart[8:10])
+		userstart = datetime.datetime.strptime(userstart, "%Y-%m-%d")
+	
+	#now, get actual start date relative to selection
+	#there will certainly still be some errors here
+	#1
+	if userstart == None and years == None and months == None and days == None:
+		start = mindate
+	#2	
+	elif userstart != None and years == None and months == None and days == None:
+		start = userstart
+	#3
+	elif userstart == None and years != None and months == None and days == None:
+		start = str(min(years))+"-01-01"
+		start = datetime.datetime.strptime(start, "%Y-%m-%d")
+	#4
+	elif userstart == None and years == None and months != None and days == None:
+		startyear = str(minyear)
+		startmonth = str(min(months)).zfill(2)
+		startday = "01"
+		start = datetime.datetime.strptime(startyear+"-"+startmonth+"-"+startday, "%Y-%m-%d")
+	#5
+	elif userstart == None and years == None and months == None and days != None:
+		startyear = str(minyear)
+		startmonth = str(minmonth)
+		startday = str(min(days)).zfill(2)
+		start = datetime.datetime.strptime(startyear+"-"+startmonth+"-"+startday, "%Y-%m-%d")	
+	#6
+	elif userstart != None and years != None and months == None and days == None:
+		t = [ y for y in years if y >= userstartyear ]
+		if len(t) == 0:
+			return []	#empty selection
+		else:
+			start = str(min(t))+"-01-01"
+			start = datetime.datetime.strptime(start, "%Y-%m-%d")
+	#7
+	elif userstart == None and years != None and months != None and days == None:	 	
+		startyear = str(min(years))
+		startmonth = str(min(months)).zfill(2)
+		startday = "01"
+		start = datetime.datetime.strptime(startyear+"-"+startmonth+"-"+startday, "%Y-%m-%d")
+	#8
+	elif userstart == None and years == None and months != None and days != None:
+		startyear = str(minyear)
+		startmonth = str(min(months)).zfill(2)
+		startday = str(min(days)).zfill(2)
+		start = datetime.datetime.strptime(startyear+"-"+startmonth+"-"+startday, "%Y-%m-%d")
+	#9	
+	elif userstart != None and years == None and months != None and days == None:	 	
+		startyear = str(userstartyear)
+		s = [ m for m in months if m >= userstartmonth ]
+		if len(s) > 0:
+			startmonth = str(min(s)).zfill(2)
+			if min(s) == userstartmonth:
+				startday = str(userstartday).zfill(2)
+			else:
+				startday = "01"
+		else:
+			startyear = str(userstartyear+1)
+			startmonth = str(min(months)).zfill(2)
+			startday = "01"
+			
+		start = startyear+"-"+startmonth+"-"+startday
+		start = datetime.datetime.strptime(start, "%Y-%m-%d")
+	#10
+	elif userstart != None and years == None and months == None and days != None:		
+		startyear = str(userstartyear)
+		startmonth = str(userstartmonth)
+		startday = str(userstartday)
+		start = datetime.datetime.strptime(startyear+"-"+startmonth+"-"+startday, "%Y-%m-%d")
+	#11
+	elif userstart == None and years != None and months == None and days != None:	
+		startyear = min(years)
+		startmonth = "01"
+		startday = str(min(days)).zfill(2)
+		start = datetime.datetime.strptime(startyear+"-"+startmonth+"-"+startday, "%Y-%m-%d")
+	#12
+	elif userstart != None and years != None and months != None and days == None:
+		t = [ y for y in years if y >= userstartyear ]
+		if len(t) == 0:
+			return []	#empty selection
+		else:
+			if min(t) == userstartyear:
+				s = [ m for m in months if m >= userstartmonth ]
+				if len(s) > 0:
+					startyear = str(min(t))
+					startmonth = str(min(s)).zfill(2)
+				else:
+					t.remove(min(t))	#next year
+					startyear = str(min(t))
+					startmonth = str(min(months)).zfill(2) 
+			else:
+				startyear = str(min(t))
+				startmonth = str(min(s)).zfill(2)
+			
+			startday = "01"
+			start = datetime.datetime.strptime(startyear+"-"+startmonth+"-"+startday, "%Y-%m-%d")
+	#13
+	elif userstart != None and years == None and months != None and days != None:
+		s = [ m for m in months if m >= userstartmonth ]
+		if len(s) > 0:
+			startyear = str(userstartyear)
+			startmonth = str(min(s)).zfill(2)
+		else:
+			startyear = str(userstartyear+1)
+			startmonth = str(min(months)).zfill(2)
+		startday = str(min(days)).zfill(2)
+		if min(days) > DateHelper.LastDayOfMonth(int(startyear),int(startmonth)):
+			return []
+		start = datetime.datetime.strptime(startyear+"-"+startmonth+"-"+startday, "%Y-%m-%d")
+	#14
+	elif userstart != None and years != None and months == None and days != None:
+		t = [ y for y in years if y >= userstartyear ]
+		if len(t) == 0:
+			return []	#empty selection
+		else:
+			startyear = str(min(t))
+			startmonth = "01"
+			startday = str(min(days)).zfill(2)
+			start = datetime.datetime.strptime(startyear+"-"+startmonth+"-"+startday, "%Y-%m-%d")
+	#15
+	elif userstart == None and years != None and months != None and days != None:
+		startyear = str(min(years))
+		startmonth = str(min(months)).zfill(2)
+		startday = str(min(days)).zfill(2)
+		start = datetime.datetime.strptime(startyear+"-"+startmonth+"-"+startday, "%Y-%m-%d")
+	#16
+	elif userstart != None and years != None and months != None and days != None:
+		t = [ y for y in years if y >= userstartyear ]
+		if len(t) == 0:
+			return []	#empty selection
+		else:
+			if min(t) == userstartyear:
+				s = [ m for m in months if m >= userstartmonth ]
+				if len(s) > 0:
+					startyear = str(min(t))
+					startmonth = str(min(s)).zfill(2)
+				else:
+					t.remove(min(t))	#next year
+					startyear = str(min(t))
+					startmonth = str(min(months)).zfill(2) 
+			else:
+				startyear = str(min(t))
+				startmonth = str(min(s)).zfill(2)
+			
+			startday = str(min(days)).zfill(2)
+			start = datetime.datetime.strptime(startyear+"-"+startmonth+"-"+startday, "%Y-%m-%d")
+			
+	#maximum date available for sensor
+	maxyear = ((dbcursor.execute("SELECT MAX(Year) FROM Data"+str(sensor))).fetchone())[0]
+	maxmonth = ((dbcursor.execute("SELECT MAX(Month) FROM Data"+str(sensor)+" WHERE YEAR IS "+str(maxyear))).fetchone())[0]
+	maxday = ((dbcursor.execute("SELECT MAX(Day) FROM Data"+str(sensor)+" WHERE Year IS "+str(maxyear)+" AND Month IS "+str(maxmonth))).fetchone())[0]
+	maxdate = str(maxyear)+"-"+str(maxmonth).zfill(2)+"-"+str(maxday).zfill(2)
+	maxdate = datetime.datetime.strptime(maxdate, "%Y-%m-%d")
+	
+	#user selected end date
+	if userend != None:
+		userendyear = int(userend[0:4])
+		userendmonth = int(userend[5:7])
+		userendday = int(userend[8:10])
+		userend = datetime.datetime.strptime(userend, "%Y-%m-%d")
+	
+	#now, get actual start date relative to selection
+	#there will certainly still be some errors here
+	#1
+	if userend == None and years == None and months == None and days == None:
+		end = maxdate
+	#2	
+	elif userend != None and years == None and months == None and days == None:
+		end = userend
+	#3
+	elif userend == None and years != None and months == None and days == None:
+		end = str(max(years))+"-12-31"
+		end = datetime.datetime.strptime(end, "%Y-%m-%d")
+	#4
+	elif userend == None and years == None and months != None and days == None:
+		endyear = maxyear
+		endmonth = max(months)
+		endday = DateHelper.LastDayOfMonth(endyear, endmonth)
+		end = str(endyear)+"-"+str(endmonth).zfill(2)+"-"+str(endday).zfill(2)
+		end = datetime.datetime.strptime(end, "%Y-%m-%d")
+	#5
+	elif userend == None and years == None and months == None and days != None:
+		endyear = str(maxyear)
+		endmonth = str(maxmonth).zfill(2)
+		endday = str(max(days)).zfill(2)
+		if max(days) > DateHelper.LastDayOfMonth(maxyear, maxmonth):
+			endmonth = str(maxmonth+1).zfill(2) #is <= 12 since December has 31 days
+			endday = "01"
+		end = datetime.datetime.strptime(endyear+"-"+endmonth+"-"+startday, "%Y-%m-%d")	
+	#6
+	elif userend != None and years != None and months == None and days == None:
+		t = [ y for y in years if y <= userendyear ]
+		if len(t) == 0:
+			return []	#empty selection
+		else:
+			end = str(max(t))+"-12-31"
+			end = datetime.datetime.strptime(end, "%Y-%m-%d")
+	#7
+	elif userend == None and years != None and months != None and days == None:	 	
+		endyear = max(years)
+		endmonth = max(months)
+		endday = DateHelper.LastDayOfMonth(endyear, endmonth)
+		end = str(endyear)+"-"+str(endmonth).zfill(2)+"-"+str(endday).zfill(2)
+		end = datetime.datetime.strptime(end, "%Y-%m-%d")
+	#8
+	elif userend == None and years == None and months != None and days != None:
+		endyear = str(maxyear)
+		endmonth = str(max(months)).zfill(2)
+		endday = str(max(days)).zfill(2)
+		if max(days) > DateHelper.LastDayOfMonth(maxyear, max(months)):
+			endmonth = str(max(months)+1).zfill(2)
+			endday = "01"
+		end = datetime.datetime.strptime(endyear+"-"+endmonth+"-"+endday, "%Y-%m-%d")
+	#9	
+	elif userend != None and years == None and months != None and days == None:	 	
+		endyear = userendyear
+		endmonth = max([userendmonth, max(months)])
+		endday = DateHelper.LastDayOfMonth(endyear, endmonth)
+				
+		end = str(endyear)+"-"+str(endmonth).zfill(2)+"-"+str(endday).zfill(2)
+		end = datetime.datetime.strptime(end, "%Y-%m-%d")
+	#10
+	elif userend != None and years == None and months == None and days != None:		
+		end = userend
+		
+	#11
+	elif userend == None and years != None and months == None and days != None:	
+		endyear = max(years)
+		endmonth = "12"
+		endday = max(days)
+		end = str(endyear)+"-"+str(endmonth).zfill(2)+"-"+str(endday).zfill(2)
+		end = datetime.datetime.strptime(endyear+"-"+endmonth+"-"+endday, "%Y-%m-%d")
+	#12
+	elif userend != None and years != None and months != None and days == None:
+		endyear = max([userendyear, max(years)])
+		endmonth = max([userendmonth, max(months)])
+		endday = DateHelper.LastDayOfMonth(endyear, endmonth)
+		end = str(endyear)+"-"+str(endmonth).zfill(2)+"-"+str(endday).zfill(2)
+		end = datetime.datetime.strptime(end, "%Y-%m-%d")
+		
+	#13
+	elif userend != None and years == None and months != None and days != None:
+		endyear = userendyear
+		endmonth = max([userendmonth, max(months)])
+		endday = max(days)
+		end = str(endyear)+"-"+str(endmonth).zfill(2)+"-"+str(endday).zfill(2)
+		end = datetime.datetime.strptime(end, "%Y-%m-%d")
+	#14
+	elif userend != None and years != None and months == None and days != None:
+		endyear = max(years)
+		endmonth = userendmonth
+		endday = max(days)
+		end = str(endyear)+"-"+str(endmonth).zfill(2)+"-"+str(endday).zfill(2)
+		end = datetime.datetime.strptime(end, "%Y-%m-%d")
+		
+	#15
+	elif userend == None and years != None and months != None and days != None:
+		endyear = max(years)
+		endmonth = max(months)
+		endday = max(days)
+		if endday > DateHelper.LastDayOfMonth(endyear, endmonth):
+			if endmonth < 12:
+				endmonth = endmonth + 1
+				endday = "01"
+			else:
+				endyear = endyear + 1
+				endmonth = "01"
+				endday = "01"
+		end = str(endyear)+"-"+str(endmonth).zfill(2)+"-"+str(endday).zfill(2)
+		end = datetime.datetime.strptime(end, "%Y-%m-%d")
+	#16
+	elif userend != None and years != None and months != None and days != None:
+		endyear = max([userendyear, max(years)])
+		endmonth = max([userendmonth, max(months)])
+		endday = max([userendday, max(days)])
+		if endday > DateHelper.LastDayOfMonth(endyear, endmonth):
+			if endmonth < 12:
+				endmonth = endmonth + 1
+				endday = "01"
+			else:
+				endyear = endyear + 1
+				endmonth = "01"
+				endday = "01"
+		end = str(endyear)+"-"+str(endmonth).zfill(2)+"-"+str(endday).zfill(2)
+		end = datetime.datetime.strptime(end, "%Y-%m-%d")	
 
-	measurand = ((dbcursor.execute("SELECT Measurand From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]
-	unit = ((dbcursor.execute("SELECT Unit From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]
-	calibration = ((dbcursor.execute("SELECT Calibration From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]	
-	description = ((dbcursor.execute("SELECT Description From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]	
-	module = ((dbcursor.execute("SELECT Module From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]	
-	pph = ((dbcursor.execute("SELECT pph FROM Sensors WHERE Id IS "+str(sensor))).fetchone())[0]
-	
-	print "Sensor: \t" + str(sensor)
-	print "  Module: \t" + str(module)
-	print "  Measurand: \t" + measurand + " ("+unit+")"
-	print "  Calibration: \t" + str(calibration)
-	print "  Resolution: \t" + str(pph) + " pph"
-	
-##############################################################################
-#Creates an array of dates and an array of datehours relative to the selections by the user
-def GetDateHours(years, months, days, hours, start, end):
-	
-	if start is not None:
-		startdate = datetime.datetime.strptime(start, "%Y-%m-%d")
-		startyear = startdate.year
-		startmonth = startdate.month
-		startday = startdate.day
-	
-	if end is not None:
-		enddate = datetime.datetime.strptime(end, "%Y-%m-%d")
-		endyear = enddate.year
-		endmonth = enddate.month
-		endday = enddate.day
-		
-	if start is None:
-		if years is not None:
-			startyear = min(years)
-		else:
-			if endyear is not None:
-				startyear = endyear
-			else:
-				raise MyError('Cannot determine date range')
-		if months is not None:
-			startmonth = min(months)
-		else:
-			startmonth = 1
-		
-		if days is not None:
-			startday = min(days)
-		else:
-			startday = 1
-			
-		startdate = datetime.datetime.strptime(str(startyear)+"-"+str(startmonth)+"-"+str(startday), "%Y-%m-%d")
-			
-	if end is None:
-		if years is not None:
-			endyear = max(years)
-		else:
-			if startyear is not None:
-				endyear = startyear
-			else:
-				raise MyError('Cannot determine date range')
-		if months is not None:
-			endmonth = max(months)
-		else:
-			endmonth = 12
-		if days is not None:
-			endday = max(days)
-		else:
-			endday = DateHelper.LastDayOfMonth(endyear, endmonth)
-			
-		enddate = datetime.datetime.strptime(str(endyear)+"-"+str(endmonth)+"-"+str(endday), "%Y-%m-%d")
-	
 	if years is None:
-		years = range(startyear, endyear+1)
+		years = range(minyear, maxyear+1)
 	if months is None:
 		months = range(1,13)
 	if days is None:
 		days = range(1,32)
 	if hours is None:
 		hours = range(0,24)
-		
-	datestmp = [ startdate + datetime.timedelta(days=d) for d in range( (enddate-startdate).days + 1) ]
+				
+	datestmp = [ start + datetime.timedelta(days=d) for d in range( (end-start).days + 1) ]
 	
 	dates = [ (d.year,d.month,d.day) for d in datestmp if d.year in years and d.month in months and d.day in days]
-		
+	
+	
 	datehours = []
 	for d in dates:
 		for h in hours:
 			datehours.append((d[0],d[1],d[2],h))
-			
-	return [dates, datehours]
+	
+	print "  Selection: \t" + str(len(dates)) + " days/" + str(len(datehours)) + " hours between " + str(start)[0:10] + " and " + str(end)[0:10]
 	
 	
-##############################################################################
-#Reads data
-def ReadData(sensor,years, months, days, hours, start, end):
 	
-	#if no year range is given, we pick all available years for sensor
-	if years is None:
-		minyear = ((dbcursor.execute("SELECT MIN(Year) FROM Data"+str(sensor))).fetchone())[0]
-		maxyear = ((dbcursor.execute("SELECT MAX(Year) FROM Data"+str(sensor))).fetchone())[0]
-		years = range(minyear,maxyear+1)
-		
-	slots = GetDateHours(years, months, days, hours, start, end)
-	dates = slots[0]
-	datehours = slots[1]	
-	print "  Selection: \t" + str(len(dates)) + " days/" + str(len(datehours)) + " hours"
-	
-	#I don't know why but the filtering of data by datehours is MUCH quicker in Python than in sql. So, we retrieve the data for all datemonths and do the further filtering in Python.	
+	#I don't know why but the filtering of data by datehours is MUCH quicker in Python than in sql. So, we retrieve the data for all datemonths and do the further filtering in Python.		
 	datemonths = []
 	for date in dates:
 		d = [date[0],date[1]]
@@ -390,7 +609,18 @@ def ReadData(sensor,years, months, days, hours, start, end):
 #Overall stats
 for sensor in sensors:
 
-	PrintGeneralSensorInfo(sensor)
+	measurand = ((dbcursor.execute("SELECT Measurand From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]
+	unit = ((dbcursor.execute("SELECT Unit From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]
+	calibration = ((dbcursor.execute("SELECT Calibration From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]	
+	description = ((dbcursor.execute("SELECT Description From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]	
+	module = ((dbcursor.execute("SELECT Module From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]	
+	pph = ((dbcursor.execute("SELECT pph FROM Sensors WHERE Id IS "+str(sensor))).fetchone())[0]
+	
+	print "Sensor: \t" + str(sensor)
+	print "  Module: \t" + str(module)
+	print "  Measurand: \t" + measurand + " ("+unit+")"
+	print "  Calibration: \t" + str(calibration)
+	print "  Resolution: \t" + str(pph) + " pph"
 		
 	#Check if data available
 	numpoints = ((dbcursor.execute("SELECT COUNT(Timestamp) FROM Data"+str(sensor))).fetchone())[0]
@@ -401,6 +631,9 @@ for sensor in sensors:
 		continue
 	
 	res = ReadData(sensor,years, months, days, hours, start, end)
+	if len(res) == 0:
+		ColorPrint.ColorPrint("  No data in selection.", "error")
+		continue
 	datehours = res[0]
 	data = res[1]
 	quality = res[2]		

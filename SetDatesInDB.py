@@ -8,7 +8,7 @@
 ##############################################################################
 
 ##############################################################################
-#This script adds correct dates (taking timezone at location into account) in the database
+#This script adds correct dates (taking timezone at location into account) in the database. With option "--all", all dates are set again.
 
 ##############################################################################
 #imports
