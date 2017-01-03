@@ -25,6 +25,9 @@ from lib import ColorPrint
 from lib import DateHelper
 from lib import Tools
 
+from matplotlib.font_manager import FontProperties
+
+
 ##############################################################################
 #parse options
 parser = OptionParser()
@@ -221,34 +224,15 @@ def Analyze(sensor, datehours, data):
 	dailyminsigma = dailymin['value'].std()
 	print "    Daily min:\t" + str(round(dailyminavg,3)) + " (σ=" + str(round(dailyminsigma,3))+")"	
 	
-	return [totalavg, totalsigma, dailymaxavg, dailymaxsigma, dailyminavg, dailyminsigma]
+	res = dict()
+	res["totalavg"] = totalavg
+	res["totalsigma"] = totalsigma
+	res["totalmax"] = totalmax
+	res["totalmin"] = totalmin
+	res["dailyminavg"] = dailyminavg
+	res["dailymaxavg"] = dailymaxavg
 	
-	
-	#month data
-#	monthdata = dict()
-#	for m in range(1,13):
-#		mdata = [ data[e[0]][e[1]][e[2]][e[3]] for e in availabledatehours if e[1] == m ]
-#		if len(mdata) == 0:
-#			continue
-#		else:
-#			monthdata[m] = numpy.concatenate(mdata)
-			
-	#month average
-#	availablemonths = monthdata.keys()
-#	monthavg = [ monthdata[h]['value'].mean() for h in availablemonths ]
-#	monthstd = [ monthdata[h]['value'].std() for h in availablemonths ]
-			
-	#hour average plot
-	#if len(availablemonths) > 1:
-		#plt.errorbar(availablemonths, monthavg, monthstd, marker='^')
-		#plt.xlim([min(availablemonths)-1,max(availablemonths)+1])
-		#plt.xlabel('Month')
-		#plt.ylabel('Average ' + measurand + " (" + unit + ")")
-		#plt.xticks(availablemonths, availablemonths)
-	
-	#plt.show()
-	
-	
+	return res
 	
 ##############################################################################
 #Reads data
@@ -648,8 +632,15 @@ for sensor in sensors:
 	Analyze(sensor, datehours, data)
 	
 	
-	if yearlystats:
-		for y in sorted(list(set([d[0] for d in datehours])), key=int):
+	if yearlystats and not monthlystats:
+		yearstmp = sorted(list(set([d[0] for d in datehours])), key=int)
+		totalavg = []
+		totalsigma = []
+		totalmax = []
+		totalmin = []
+		dailymaxavg = []
+		dailyminavg = []
+		for y in yearstmp:
 			ydatehours = [ d for d in datehours if d[0] == y ]
 			ydata = dict()	
 			for d in ydatehours:
@@ -658,25 +649,81 @@ for sensor in sensors:
 			print ""
 			print "  Statistics for " + str(y) + ":"
  			res = Analyze(sensor, ydatehours, ydata)
- 			totalavg = res[0]
- 			totalsigma = res[1]
- 			dailymaxavg = res[2]
- 			dailymaxsigma = res[3]
- 			dailyminavg = res[4]
- 			dailyminsigma = res[5]	
+ 			totalavg.append(res["totalavg"])
+ 			totalsigma.append(res["totalsigma"])
+ 			totalmax.append(res["totalmax"])
+ 			totalmin.append(res["totalmin"])
+ 			dailymaxavg.append(res["dailymaxavg"])
+ 			dailyminavg.append(res["dailyminavg"])
  			
- 	if monthlystats:
- 		for y in sorted(list(set([d[0] for d in datehours])), key=int):
-			for m in sorted(list(set([d[1] for d in datehours if d[0] == y])), key=int):
-				mdatehours = [ d for d in datehours if d[0] == y and d[1] == m ]
-				mdata = dict()	
-				for d in mdatehours:
-					if d in data.keys():
-						mdata[d] = data[d]
-				print ""
-				print "  Statistics for " + str(m).zfill(2) + "-" + str(y) + ":"
- 				Analyze(sensor, mdatehours, mdata)	
-			
+ 		if plotting:
+ 			totalavgplot, = plt.plot(yearstmp, totalavg, 'yo')
+ 			totalmaxplot, = plt.plot(yearstmp, totalmax, 'ro')
+ 			totalminplot, = plt.plot(yearstmp, totalmin, 'bo')
+ 			dailymaxavgplot, = plt.plot(yearstmp, dailymaxavg, 'r^')
+ 			dailyminavgplot, = plt.plot(yearstmp, dailyminavg, 'b^')
+  			plt.xlim([min(yearstmp)-1,max(yearstmp)+1])
+ 			plt.xticks(yearstmp, yearstmp)
+ 			plt.xlabel("Year")
+ 			plt.ylabel(measurand + " ("+unit+")")
+ 			#plt.errorbar(yearstmp, totalavg, totalsigma)
+ 			fontP = FontProperties()
+  			fontP.set_size('small')
+ 			plt.legend([totalmaxplot, dailymaxavgplot, totalavgplot, dailyminavgplot, totalminplot], ["Maximum", "Daily maximum", "Average", "Daily minimum", "Minimum"], prop = fontP)
+ 			
+ 			title = raw_input("    Plot title:\t")
+ 			if title == "":
+ 				title = "Yearly statistics for sensor " + str(sensor)
+  			plt.title(title)
+  			
+ 			plt.show()
+ 			
+ 	if monthlystats and not yearlystats:
+ 		monthstmp = sorted(list(set([d[1] for d in datehours])), key=int)
+ 		totalavg = []
+		totalsigma = []
+		totalmax = []
+		totalmin = []
+		dailymaxavg = []
+		dailyminavg = []
+ 		monthnames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+ 		for m in monthstmp:
+			mdatehours = [ d for d in datehours if d[1] == m ]
+			mdata = dict()	
+			for d in mdatehours:
+				if d in data.keys():
+					mdata[d] = data[d]
+			print ""
+			print "  Statistics for " + monthnames[m-1]+":"
+ 			res = Analyze(sensor, mdatehours, mdata)	
+ 			totalavg.append(res["totalavg"])
+ 			totalsigma.append(res["totalsigma"])
+ 			totalmax.append(res["totalmax"])
+ 			totalmin.append(res["totalmin"])
+ 			dailymaxavg.append(res["dailymaxavg"])
+ 			dailyminavg.append(res["dailyminavg"])
+
+		if plotting:
+ 			totalavgplot, = plt.plot(monthstmp, totalavg, 'yo')
+ 			totalmaxplot, = plt.plot(monthstmp, totalmax, 'ro')
+ 			totalminplot, = plt.plot(monthstmp, totalmin, 'bo')
+ 			dailymaxavgplot, = plt.plot(monthstmp, dailymaxavg, 'r^')
+ 			dailyminavgplot, = plt.plot(monthstmp, dailyminavg, 'b^')
+  			plt.xlim([min(monthstmp)-1,max(monthstmp)+1])
+ 			plt.xticks(monthstmp, monthstmp)
+ 			plt.xlabel("Month")
+ 			plt.ylabel(measurand + " ("+unit+")")
+ 			#plt.errorbar(yearstmp, totalavg, totalsigma)
+ 			fontP = FontProperties()
+  			fontP.set_size('small')
+ 			plt.legend([totalmaxplot, dailymaxavgplot, totalavgplot, dailyminavgplot, totalminplot], ["Maximum", "Daily maximum", "Average", "Daily minimum", "Minimum"], prop = fontP)
+ 			
+ 			title = raw_input("    Plot title:\t")
+ 			if title == "":
+ 				title = "Monthly statistics for sensor " + str(sensor)
+  			plt.title(title)
+ 			
+ 			plt.show()
 	
 	if len(sensors) > 1:
 		print ""
