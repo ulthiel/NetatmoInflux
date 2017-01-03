@@ -3,7 +3,7 @@
 ##############################################################################
 # WeatherStats
 # A collection of Python scripts for general weather data management and analysis with Netatmo support
-# (C) 2015-2016, Ulrich Thiel
+# (C) 2015-2017, Ulrich Thiel
 # thiel@mathematik.uni-stuttgart.de
 ##############################################################################
 

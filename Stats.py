@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 ##############################################################################
 # WeatherStats
-# Tiny Python scripts for general weather data management and analysis (with Netatmo support)
-# (C) 2015-2016, Ulrich Thiel
+# A collection of Python scripts for general weather data management and analysis with Netatmo support
+# (C) 2015-2017, Ulrich Thiel
 # thiel@mathematik.uni-stuttgart.de
 ##############################################################################
 
@@ -39,6 +39,7 @@ parser.add_option("--end", dest="end",help="End date (e.g., --end=2015-05-24)")
 parser.add_option("--missing", action="store_true", dest="printmissing",help="Print missing data", default=False)
 parser.add_option("--yearly", action="store_true", dest="yearlystats",help="Compute yearly data", default=False)
 parser.add_option("--monthly", action="store_true", dest="monthlystats",help="Compute monthly data", default=False)
+parser.add_option("--plot", action="store_true", dest="plotting",help="Create plots", default=False)
 (options, args) = parser.parse_args()
 sensors = options.sensors
 modules = options.modules
@@ -51,6 +52,7 @@ end = options.end
 printmissing = options.printmissing
 yearlystats = options.yearlystats
 monthlystats = options.monthlystats
+plotting = options.plotting
 
 	
 ##############################################################################
@@ -218,6 +220,8 @@ def Analyze(sensor, datehours, data):
 	dailyminavg = dailymin['value'].mean()
 	dailyminsigma = dailymin['value'].std()
 	print "    Daily min:\t" + str(round(dailyminavg,3)) + " (σ=" + str(round(dailyminsigma,3))+")"	
+	
+	return [totalavg, totalsigma, dailymaxavg, dailymaxsigma, dailyminavg, dailyminsigma]
 	
 	
 	#month data
@@ -653,7 +657,13 @@ for sensor in sensors:
 					ydata[d] = data[d]
 			print ""
 			print "  Statistics for " + str(y) + ":"
- 			Analyze(sensor, ydatehours, ydata)	
+ 			res = Analyze(sensor, ydatehours, ydata)
+ 			totalavg = res[0]
+ 			totalsigma = res[1]
+ 			dailymaxavg = res[2]
+ 			dailymaxsigma = res[3]
+ 			dailyminavg = res[4]
+ 			dailyminsigma = res[5]	
  			
  	if monthlystats:
  		for y in sorted(list(set([d[0] for d in datehours])), key=int):
