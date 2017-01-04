@@ -22,9 +22,20 @@
 #along with WeatherStats. If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-import sys
+from distutils.core import setup
 
-#prints str without newline so that str can be overwritten
-def PrintWithoutNewline(str):
-	sys.stdout.write('\r' + str) 
-	sys.stdout.flush()
+setup(name='WeatherStats',
+      version='1.0',
+      description='A collection of Python scripts for general weather data management and analysis with Netatmo support',
+      url='http://github.com/thielul/WeatherStats',
+      author='Ulrich Thiel',
+      author_email='thiel@mathematik.uni-stuttgart.de',
+      license='GPL',
+      packages=['WeatherStats'],
+      install_requires=[
+          'numpy',
+          'scipy',
+          'matplotlib'
+      ],
+      keywords = ['weather', 'statistics', 'netatmo']
+      )

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python2.7
 # -*- coding: utf-8 -*-
 ##############################################################################
 # WeatherStats
@@ -6,7 +6,21 @@
 # (C) 2015-2017, Ulrich Thiel
 # thiel@mathematik.uni-stuttgart.de
 ##############################################################################
-
+#This file is part of WeatherStats.
+#
+#WeatherStats is free software: you can redistribute it and/or modify
+#it under the terms of the GNU General Public License as published by
+#the Free Software Foundation, either version 3 of the License, or
+#(at your option) any later version.
+#
+#WeatherStats is distributed in the hope that it will be useful,
+#but WITHOUT ANY WARRANTY; without even the implied warranty of
+#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#GNU General Public License for more details.
+#
+#You should have received a copy of the GNU General Public License
+#along with WeatherStats. If not, see <http://www.gnu.org/licenses/>.
+##############################################################################
 
 
 ##############################################################################
@@ -325,8 +339,9 @@ def ReadData(sensor,years, months, days, hours, userstart, userend):
 	elif userstart == None and years != None and months == None and days != None:	
 		startyear = min(years)
 		startmonth = "01"
-		startday = str(min(days)).zfill(2)
-		start = datetime.datetime.strptime(startyear+"-"+startmonth+"-"+startday, "%Y-%m-%d")
+		startday = min(days)
+		start = str(startyear)+"-"+str(startmonth).zfill(2)+"-"+str(startday).zfill(2)
+		start = datetime.datetime.strptime(start, "%Y-%m-%d")
 	#12
 	elif userstart != None and years != None and months != None and days == None:
 		t = [ y for y in years if y >= userstartyear ]
@@ -483,7 +498,7 @@ def ReadData(sensor,years, months, days, hours, userstart, userend):
 		endmonth = "12"
 		endday = max(days)
 		end = str(endyear)+"-"+str(endmonth).zfill(2)+"-"+str(endday).zfill(2)
-		end = datetime.datetime.strptime(endyear+"-"+endmonth+"-"+endday, "%Y-%m-%d")
+		end = datetime.datetime.strptime(end, "%Y-%m-%d")
 	#12
 	elif userend != None and years != None and months != None and days == None:
 		endyear = max([userendyear, max(years)])
@@ -671,6 +686,7 @@ for sensor in sensors:
   			fontP.set_size('small')
  			plt.legend([totalmaxplot, dailymaxavgplot, totalavgplot, dailyminavgplot, totalminplot], ["Maximum", "Daily maximum", "Average", "Daily minimum", "Minimum"], prop = fontP)
  			
+ 			print ""
  			title = raw_input("    Plot title:\t")
  			if title == "":
  				title = "Yearly statistics for sensor " + str(sensor)
@@ -718,6 +734,7 @@ for sensor in sensors:
   			fontP.set_size('small')
  			plt.legend([totalmaxplot, dailymaxavgplot, totalavgplot, dailyminavgplot, totalminplot], ["Maximum", "Daily maximum", "Average", "Daily minimum", "Minimum"], prop = fontP)
  			
+ 			print ""
  			title = raw_input("    Plot title:\t")
  			if title == "":
  				title = "Monthly statistics for sensor " + str(sensor)
