@@ -1,4 +1,4 @@
-del dist/win/*.*
+del /Q dist\win\*.*
 pyinstaller --distpath dist/win -F AddNetatmo.py
 pyinstaller --distpath dist/win -F AddSensor.py
 pyinstaller --distpath dist/win -F CreateEmptyDB.py

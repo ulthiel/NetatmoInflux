@@ -633,7 +633,7 @@ for sensor in sensors:
 	
 	print "Sensor: \t" + str(sensor)
 	print "  Module: \t" + str(module)
-	print "  Measurand: \t" + measurand + " ("+unit+")"
+	print ("  Measurand: \t" + measurand + " ("+unit+")").encode('utf-8')
 	print "  Calibration: \t" + str(calibration)
 	print "  Resolution: \t" + str(pph) + " pph"
 		

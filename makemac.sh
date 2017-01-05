@@ -1,5 +1,5 @@
 #!/bin/bash
-rm dist/mac/*.*
+rm dist/mac/*
 pyinstaller --distpath dist/mac -F AddNetatmo.py
 pyinstaller --distpath dist/mac -F AddSensor.py
 pyinstaller --distpath dist/mac -F CreateEmptyDB.py

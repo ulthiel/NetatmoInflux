@@ -1,9 +1,9 @@
 #WeatherStats
 
 ***
-WeatherStats is a collection of (cross-platform) Python scripts for general sensor data management and analysis with a local SQLite database as backbone. The design of the software is quite general but the main application is weather data like temperature, precipitation, etc. A central feature is a user-friendly interface to [Netatmo](https://www.netatmo.com/) servers: remote data of Netatmo sensors can be automatically downloaded and added to the local database for analysis. Interfaces for other data devices may be added in the future.
+WeatherStats is a collection of (cross-platform) Python scripts for general sensor data management and analysis with a local SQLite database as backbone. The design of the software is quite general but the main application is weather data like temperature, precipitation, etc. A central feature is a user-friendly interface to [Netatmo](https://www.netatmo.com/) servers: remote data of Netatmo sensors can be automatically downloaded and added to the local database for analysis. Interfaces for other data devices may be added in the future. You can post bug reports, feature requests etc. on the Github page.
 
-I've written this software just for myself, it's open source and free (GPL). If it's also useful for you, I'd be happy about a donation. 
+I've written this software just for myself, it's open source and free (GPL). If it's also useful for you, I'd be happy about a donation.
 
 <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top">
 <input type="hidden" name="cmd" value="_s-xclick">
@@ -26,18 +26,33 @@ WeatherStats is a collection of stand-alone programs which are executed in a ter
 ##Quick start
 The following is a short guide for using WeatherStats to manage and analyze Netatmo data. You can find more detailed information below. 
  
-First, create an empty database with the program ```CreateEmptyDB```. Add your Netatmo account using ```AddNetatmo``` and follow the on-screen instructions for obtaining a client secret. You can add as many accounts as you like. All modules and sensors managed by your accounts are automatically added to the database and are assigned a unique id. You can get an overview of the sensors and their ids with ```ListSensors```. Now, run ```UpdateNetatmo```. This adds all available data for all sensors of your Netatmo accounts to the SQLite database ```Weather.db```. If you run it again later, all new data will be added. You can now compute statistics using the program ```Stats```. Running ```./Stats --help``` lists the available options. Here are four examples:
+First, create an empty database with the program ```CreateEmptyDB```. Add your Netatmo account using ```AddNetatmo``` and follow the on-screen instructions for obtaining a client secret. You can add as many accounts as you like. Now, run ```UpdateNetatmo```. This automatically adds all available sensors and modules to the database and also downloads all available data which is then inserted into the SQLite database ```Weather.db```. The initial download may take a while (roughly 30 minutes for 2 years of data). If you run this program again later, only new data will be added and this is much quicker of course. In this way you can always keep an up-to-date database. If you get an HTTP error while updating, you either misspelled your account credentials or it's a timeout by the Netatmo servers—just try again at a later time. You can now compute statistics using the program ```Stats```. Running ```Stats --help``` lists the available options. The main feature is that you can define certain filters to analyze only specific time windows. Here are four examples which should make clear how it works:
 
 ####Example 1
-```./Stats.py```
+```
+./Stats.py --sensors==6
+Sensor: 		6
+  Module: 		2
+  Measurand:	Temperature (°C)
+  Calibration: 	0
+  Resolution: 	12 pph
 
-This computes the overall statistics for all sensors found in the database. Depending on the number of sensors and the size of the database, this may take a while.
+  Overall statistics:
+    Selection: 	813 days/19512 hours between 2014-10-14 and 2017-01-03
+    Quality:  	97% (19104/19512, 227745/234144)
+    Maximum: 	37.4 (2015-08-07 17h)
+    Minimum: 	-8.5 (2014-12-29 01h)
+    Average:	12.033 (sigma=7.781)
+    Daily max:	16.172 (sigma=8.143)
+    Daily min:	8.24 (sigma=6.599)
+```
+As described below in more detail, every sensor gets a unique fixed id. You can list the sensors with the ```ListSensors``` program. In my case, sensor 6 is the outdoor temperature sensor. Calling ```Stats``` with the option ```--sensors=6``` and no further option computes overall statistics for this sensor taking all available data into account. Again, this may take a while. In my case, 227,745 data points over more than two years were taken into account.
 
 ####Example 2
 
 ```./Stats.py --sensors=6 --years=2014-2016 --months=12 --days=24-26 --yearly --plot```
 
-My outdoor temperature sensor has the id number 6 and in this example we get an overview of the temperatures during Christmas over the years 2014 to 2016. The additional ```plot``` option also creates a plot of the results. 
+With this selection we can get an overview of the temperatures during Christmas over the years 2014 to 2016. The additional ```plot``` option also creates a plot of the results. 
 
 ![](doc/Christmas.png)
 

@@ -71,8 +71,8 @@ for sensor in sensors:
 			locstr = locstr + ", "
 	print "Sensor: \t" + str(sensor)
 	print "  Module: \t" + str(module)
-	print "  Measurand: \t" + measurand + " ("+unit+")"
-	print locstr
+	print ("  Measurand: \t" + measurand + " ("+unit+")").encode('utf-8')
+	print locstr.encode('utf-8')
 	print "  Calibration: \t" + str(calibration)
 	print "  Resolution: \t" + str(pph) + " pph"
 	print ""
