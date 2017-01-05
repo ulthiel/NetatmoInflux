@@ -1,18 +1,16 @@
 # WeatherStats
 
-WeatherStats is a collection of (cross-platform) Python scripts for general sensor data management and analysis with a local SQLite database as backbone. The design of the software is quite general but the main application is weather data like temperature, precipitation, etc. A central feature is a user-friendly interface to [Netatmo](https://www.netatmo.com/) servers: remote data of Netatmo sensors can be automatically downloaded and added to the local database for analysis. Interfaces for other data devices may be added in the future. You can post bug reports, feature requests etc. on the Github page.
+WeatherStats is a collection of (cross-platform) Python scripts for general sensor data management and analysis with a local SQLite database as backbone. The design of the software is quite general but the main application is weather data like temperature, precipitation, etc. A central feature is a user-friendly interface to [Netatmo](https://www.netatmo.com/) servers: remote data of Netatmo sensors can be automatically downloaded and added to the local database for analysis. Interfaces for other data devices may be added in the future. 
 
 I've written this software just for myself, it's open source and free (GPL). If it's also useful for you, I'd be happy about a donation. [![paypal](https://www.paypalobjects.com/en_US/i/btn/btn_donate_SM.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=VL83YL3RYH66N)
    
-by Ulrich Thiel, thiel@mathematik.uni-stuttgart.de
+By Ulrich Thiel, thiel@mathematik.uni-stuttgart.de
 
 * * *
 
 
 ## Downloads
-WeatherStats is a collection of stand-alone programs which are executed in a terminal<sup><a href="#terminal">1</a></sup> with specific options as discussed below. For Windows and MacOS it's easiest to download the pre-compiled [binaries](https://github.com/thielul/WeatherStats/releases/latest). You can also download the latest [source code](https://github.com/thielul/WeatherStats/archive/master.zip) and execute the Python scripts directly. To this end, you'll need [Python 2](https://www.python.org/downloads/) (version 2, not version 3; both versions may co-exist on your system though) and [Scipy](https://www.scipy.org/install.html) (I recommend installing a pre-compiled bundle like [Anaconda](https://www.continuum.io/downloads)).
-
-
+For Windows and MacOS it's easiest to download the stand-alone [**binaries**](https://github.com/thielul/WeatherStats/releases/latest). Note that these programs are executed in a terminal<sup><a href="#terminal">1</a></sup> with specific options as discussed below. You can of course also download the latest [source code](https://github.com/thielul/WeatherStats/archive/master.zip) and execute the Python scripts directly. To this end, you'll need [Python 2](https://www.python.org/downloads/) (version 2, not version 3; both versions may co-exist on your system though) and [Scipy](https://www.scipy.org/install.html) (I recommend installing a pre-compiled bundle like [Anaconda](https://www.continuum.io/downloads)). 
 
 
 ## Quick start
