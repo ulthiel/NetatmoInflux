@@ -22,7 +22,7 @@ by Ulrich Thiel, thiel@mathematik.uni-stuttgart.de
 ##Quick start
 You can download the source code of the latest version [here](). You'll need Python 2 and libraries as listed in the ```requirements.txt``` file. Below, you'll find detailed installation instructions. The following is a short guide for using WeatherStats to manage and analyze Netatmo data. You can find more detailed information below. 
  
-First, create an empty database with the program ```CreateEmptyDB.py```. Add your Netatmo account using ```AddNetatmo.py``` and follow the on-screen instructions for obtaining a client secret. You can add as many accounts as you like. All modules and sensors managed by your accounts are automatically added to the database and are assigned a unique id. You can get an overview of the sensors and their ids with ```ListSensors.py```. Now, run ```UpdateNetatmo.py```. This adds all available data for all sensors of your Netatmo accounts to the SQLite database ```Weather.db```. If you interrupt this program or run it again at a later time, all new data will be added automatically. You can now compute statistics using the program ```Stats.py```. Running ```Stats.py --help``` lists the available options. Here are four examples:
+First, create an empty database with the program ```CreateEmptyDB.py```. Add your Netatmo account using ```AddNetatmo.py``` and follow the on-screen instructions for obtaining a client secret. You can add as many accounts as you like. All modules and sensors managed by your accounts are automatically added to the database and are assigned a unique id. You can get an overview of the sensors and their ids with ```ListSensors.py```. Now, run ```UpdateNetatmo.py```. This adds all available data for all sensors of your Netatmo accounts to the SQLite database ```Weather.db```. If you run it again later, all new data will be added. You can now compute statistics using the program ```Stats.py```. Running ```Stats.py --help``` lists the available options. Here are four examples:
 
 ####Example 1
 ```python Stats.py```
@@ -112,4 +112,10 @@ python -m pip install scipy‑0.18.1‑cp27‑cp27m‑win32.whl
 python -m pip install matplotlib‑1.5.3‑cp27‑cp27m‑win32.whl
 ```
 
-(you might have newer version numbers in the file names of course). Now, you're ready to rung WeatherStats.
+(you might have newer version numbers in the file names of course). Finally, install the Colorama package using
+
+```
+python -m pip install colorama
+```
+
+Now, you're ready to run WeatherStats.
