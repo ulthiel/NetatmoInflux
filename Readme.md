@@ -1,7 +1,7 @@
 #WeatherStats
 
 ***
-WeatherStats is a collection of Python scripts for general sensor data management and analysis with a local SQLite database as backbone. The design of the software is quite general but the main application is weather data like temperature, precipitation, etc. A central feature is a user-friendly interface to [Netatmo](https://www.netatmo.com/) servers: remote data of Netatmo sensors can be automatically downloaded and added to the local database for analysis. Interfaces for other data devices may be added in the future.
+WeatherStats is a collection of (cross-platform) Python scripts for general sensor data management and analysis with a local SQLite database as backbone. The design of the software is quite general but the main application is weather data like temperature, precipitation, etc. A central feature is a user-friendly interface to [Netatmo](https://www.netatmo.com/) servers: remote data of Netatmo sensors can be automatically downloaded and added to the local database for analysis. Interfaces for other data devices may be added in the future.
 
 I've written this software just for myself, it's open source and free (GPL). If it's also useful for you, I'd be happy about a donation. 
 
@@ -17,10 +17,11 @@ by Ulrich Thiel, thiel@mathematik.uni-stuttgart.de
 ***
 
 
-  
+##Downloads
+You can download the source code of the latest version [here](). You'll need Python 2 and some libraries as described below. Alternatively, you can simply download [binaries for Windows]() and [binaries for MacOS](). All programs are executed in a terminal with specific options as discussed below.
 
 ##Quick start
-You can download the source code of the latest version [here](). You'll need Python 2 and libraries as listed in the ```requirements.txt``` file. Below, you'll find detailed installation instructions. The following is a short guide for using WeatherStats to manage and analyze Netatmo data. You can find more detailed information below. 
+The following is a short guide for using WeatherStats to manage and analyze Netatmo data. You can find more detailed information below. 
  
 First, create an empty database with the program ```CreateEmptyDB.py```. Add your Netatmo account using ```AddNetatmo.py``` and follow the on-screen instructions for obtaining a client secret. You can add as many accounts as you like. All modules and sensors managed by your accounts are automatically added to the database and are assigned a unique id. You can get an overview of the sensors and their ids with ```ListSensors.py```. Now, run ```UpdateNetatmo.py```. This adds all available data for all sensors of your Netatmo accounts to the SQLite database ```Weather.db```. If you run it again later, all new data will be added. You can now compute statistics using the program ```Stats.py```. Running ```Stats.py --help``` lists the available options. Here are four examples:
 
@@ -104,18 +105,13 @@ Under Linux you probably know what a terminal ss, under MacOS you can get a term
 
 ###Windows
 
-To run python from the terminal you first have to add the python installation directory to the PATH variable as described [here](https://docs.python.org/2.7/using/windows.html#excursus-setting-environment-variables). Next, open a terminal with administrator access by clicking on Start, entering "cmd", right clicking on "cmd" above, and then left clicking on "Open as administrator". Make sure that entering the command ```python``` works (it should if you have set the PATH variable correctly). Now, download ```get-pip.py``` from [here](https://pip.pypa.io/en/latest/installing/) and run ```python get-pip.py``` in the download directory. Download the NumPy+MKL, Scipy, and Matplotlib package from [this site](http://www.lfd.uci.edu/~gohlke/pythonlibs/) and install them using 
+To run python from the terminal you first have to add the python installation directory to the PATH variable as described [here](https://docs.python.org/2.7/using/windows.html#excursus-setting-environment-variables). Next, open a terminal with administrator access by clicking on Start, entering "cmd", right clicking on "cmd" above, and then left clicking on "Open as administrator". Make sure that entering the command ```python``` works (it should if you have set the PATH variable correctly). Now, download ```get-pip.py``` from [here](https://pip.pypa.io/en/latest/installing/) and run ```python get-pip.py``` in the download directory. Download the NumPy+MKL, Scipy, Matplotlib, and Colorama package from [this site](http://www.lfd.uci.edu/~gohlke/pythonlibs/) and install them using 
 
 ```
 python -m pip install numpy‑1.11.3+mkl‑cp27‑cp27m‑win32.whl
 python -m pip install scipy‑0.18.1‑cp27‑cp27m‑win32.whl
 python -m pip install matplotlib‑1.5.3‑cp27‑cp27m‑win32.whl
+python -m pip install colorama‑0.3.7‑py2.py3‑none‑any.whl
 ```
 
-(you might have newer version numbers in the file names of course). Finally, install the Colorama package using
-
-```
-python -m pip install colorama
-```
-
-Now, you're ready to run WeatherStats.
+(you might have newer version numbers in the file names of course). Now, you're ready to run WeatherStats.

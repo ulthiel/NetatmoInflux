@@ -39,7 +39,7 @@ from matplotlib.font_manager import FontProperties
 from lib import ColorPrint
 from lib import DateHelper
 from lib import Tools
-
+import FileDialog #to fix pyInstaller problem with matplotlib
 
 
 
