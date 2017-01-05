@@ -158,7 +158,7 @@ def UpdateNetatmoForAccount(account):
 			
 			#add data tables for all sensors	
 			for sensor in sensorids:
-				AddNewDataTable(sensor)
+				AddNewDataTable(dbcursor, sensor)
 						
 		else:
 			moduleid = moduleid[0]

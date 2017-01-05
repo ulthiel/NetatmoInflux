@@ -24,14 +24,10 @@
 
 import sqlite3
 
-##############################################################################
-#connect to db
-dbconn = sqlite3.connect('Weather.db')
-dbcursor = dbconn.cursor()
 
 ##############################################################################
 #Adds new table DataX where X is the sensor id
-def AddNewDataTable(sensor):
+def AddNewDataTable(dbcursor, sensor):
 				
 	dbcursor.execute(\
 		"CREATE TABLE Data"+str(sensor)+" (\n" \
@@ -69,6 +65,7 @@ def AddNewDataTable(sensor):
 ##############################################################################
 #Standalone program
 if __name__ == "__main__":
+	
 	print "Please provide information about the sensor to be added to the database."
 	measurand = raw_input("Measurand: ")
 	unit = raw_input("Unit: ")
@@ -79,6 +76,9 @@ if __name__ == "__main__":
 		moduledesc = raw_input("Module description: ")
 	pph = raw_input("Resolution (in pph): ")
 
+	dbconn = sqlite3.connect('Weather.db')
+	dbcursor = dbconn.cursor()
+
 	if moduleid == "":
 		dbcursor.execute("INSERT INTO Modules (Description) VALUES (\""+moduledesc+"\")")
 		moduleid = (dbcursor.execute("SELECT last_insert_rowid();").fetchone())[0]
@@ -87,7 +87,7 @@ if __name__ == "__main__":
 	dbcursor.execute("INSERT INTO Sensors (Measurand,Unit,Description,Calibration,Module,pph) VALUES (\""+measurand + "\",\""+unit+"\",\""+desc+"\","+cal+","+str(moduleid)+","+str(pph)+")")
 	sensorid = (dbcursor.execute("SELECT last_insert_rowid();").fetchone())[0]
 
-	AddNewDataTable(sensorid)
+	AddNewDataTable(dbcursor, sensorid)
 	print "Added sensor with id " + str(sensorid) + " to module with id "+str(moduleid)
 	
 	dbconn.commit()
