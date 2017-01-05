@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 ##############################################################################
 # WeatherStats
-# A collection of Python scripts for general weather data management and analysis with Netatmo support
+# A collection of Python scripts for general sensor data management and analysis with Netatmo support.
 # (C) 2015-2017, Ulrich Thiel
 # thiel@mathematik.uni-stuttgart.de
 ##############################################################################
@@ -35,11 +35,12 @@ from sets import Set
 from optparse import OptionParser
 from itertools import chain
 import matplotlib.pyplot as plt
+from matplotlib.font_manager import FontProperties
 from lib import ColorPrint
 from lib import DateHelper
 from lib import Tools
 
-from matplotlib.font_manager import FontProperties
+
 
 
 ##############################################################################
@@ -150,9 +151,14 @@ def Analyze(sensor, datehours, data):
 	#sensor quality
 	pph = ((dbcursor.execute("SELECT pph FROM Sensors WHERE Id IS "+str(sensor))).fetchone())[0]
 	nonsufficientdatehours = []
+	availablepoints = 0
+	theorypoints = 0
 	for datehour in datehours:
+		theorypoints = theorypoints + pph
 		if not datehour in data.keys() or len(data[datehour]) < pph-1:
 			nonsufficientdatehours.append(datehour)
+		else:
+			availablepoints = availablepoints + len(data[datehour])
 			
 	quality = 100.0-100.0*float(len(nonsufficientdatehours))/float(len(datehours))
 	
@@ -161,7 +167,7 @@ def Analyze(sensor, datehours, data):
 	else:
 		color = "warning"
 	
-	ColorPrint.ColorPrint("    Quality:  \t"+str(int(quality))+"% ("+str(len(datehours)-len(nonsufficientdatehours))+"/"+str(len(datehours))+")", color)
+	ColorPrint.ColorPrint("    Quality:  \t"+str(int(quality))+"% ("+str(len(datehours)-len(nonsufficientdatehours))+"/"+str(len(datehours))+", "+str(int(availablepoints))+"/"+str(int(theorypoints))+")", color)
 	
 	#total data
 	totaldata = numpy.concatenate([data[d] for d in data.keys()])
@@ -245,6 +251,7 @@ def Analyze(sensor, datehours, data):
 	res["totalmin"] = totalmin
 	res["dailyminavg"] = dailyminavg
 	res["dailymaxavg"] = dailymaxavg
+	
 	
 	return res
 	

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 ##############################################################################
 # WeatherStats
-# A collection of Python scripts for general weather data management and analysis with Netatmo support
+# A collection of Python scripts for general sensor data management and analysis with Netatmo support.
 # (C) 2015-2017, Ulrich Thiel
 # thiel@mathematik.uni-stuttgart.de
 ##############################################################################
@@ -25,8 +25,8 @@
 from distutils.core import setup
 
 setup(name='WeatherStats',
-      version='1.0',
-      description='A collection of Python scripts for general weather data management and analysis with Netatmo support',
+      version='0.9',
+      description='A collection of Python scripts for general sensor data management and analysis with Netatmo support',
       url='http://github.com/thielul/WeatherStats',
       author='Ulrich Thiel',
       author_email='thiel@mathematik.uni-stuttgart.de',
@@ -35,7 +35,8 @@ setup(name='WeatherStats',
       install_requires=[
           'numpy',
           'scipy',
-          'matplotlib'
+          'matplotlib',
+          'sqlite3'
       ],
-      keywords = ['weather', 'statistics', 'netatmo']
+      keywords = ['weather', 'statistics', 'Netatmo', 'data']
       )
