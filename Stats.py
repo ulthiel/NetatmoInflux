@@ -222,7 +222,7 @@ def Analyze(sensor, datehours, data):
 	#total average
 	totalavg = totaldata['value'].mean()
 	totalsigma = totaldata['value'].std()
-	print "    Average:\t" + str(round(totalavg,3)) + " (σ=" + str(round(totalsigma,3))+")"
+	print "    Average:\t" + str(round(totalavg,3)) + " (sigma=" + str(round(totalsigma,3))+")"
 	
 	#daily data
 	dates = list(set([ (d[0],d[1],d[2]) for d in data.keys() ]))
@@ -237,12 +237,12 @@ def Analyze(sensor, datehours, data):
 	dailymax = numpy.array([ (date, dailydata[date]['value'].max()) for date in dates], dtype=[('date', (numpy.int32,(1,3))), ('value',numpy.float64)])
 	dailymaxavg = dailymax['value'].mean()
 	dailymaxsigma = dailymax['value'].std()
-	print "    Daily max:\t" + str(round(dailymaxavg,3)) + " (σ=" + str(round(dailymaxsigma,3))+")"	
+	print "    Daily max:\t" + str(round(dailymaxavg,3)) + " (sigma=" + str(round(dailymaxsigma,3))+")"	
 	
 	dailymin = numpy.array([ (date, dailydata[date]['value'].min()) for date in dates], dtype=[('date', (numpy.int32,(1,3))), ('value',numpy.float64)])
 	dailyminavg = dailymin['value'].mean()
 	dailyminsigma = dailymin['value'].std()
-	print "    Daily min:\t" + str(round(dailyminavg,3)) + " (σ=" + str(round(dailyminsigma,3))+")"	
+	print "    Daily min:\t" + str(round(dailyminavg,3)) + " (sigma=" + str(round(dailyminsigma,3))+")"	
 	
 	res = dict()
 	res["totalavg"] = totalavg
