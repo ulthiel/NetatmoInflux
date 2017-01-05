@@ -10,7 +10,7 @@ By Ulrich Thiel, thiel@mathematik.uni-stuttgart.de
 
 
 ## Downloads
-For Windows and MacOS it's easiest to download the stand-alone [**binaries**](https://github.com/thielul/WeatherStats/releases/latest). Note that these programs are executed in a terminal<sup><a href="#terminal">1</a></sup> with specific options as discussed below. You can of course also download the latest [source code](https://github.com/thielul/WeatherStats/archive/master.zip) and execute the Python scripts directly. To this end, you'll need [Python 2](https://www.python.org/downloads/) (version 2, not version 3; both versions may co-exist on your system though) and [Scipy](https://www.scipy.org/install.html) (I recommend installing a pre-compiled bundle like [Anaconda](https://www.continuum.io/downloads)). 
+For Windows and MacOS it's easiest to download the stand-alone [binaries](https://github.com/thielul/WeatherStats/releases/latest). Note that these programs are executed in a terminal<sup><a href="#terminal">1</a></sup> with specific options as discussed below. You can of course also download the latest [source code](https://github.com/thielul/WeatherStats/archive/master.zip) and execute the Python scripts directly. To this end, you'll need [Python 2](https://www.python.org/downloads/) (version 2, not version 3; both versions may co-exist on your system though) and [Scipy](https://www.scipy.org/install.html) (I recommend installing a pre-compiled bundle like [Anaconda](https://www.continuum.io/downloads)). 
 
 
 ## Quick start
