@@ -38,7 +38,7 @@ My outdoor temperature sensor has the id number 6 and in this example we get an 
 
 ```python Stats.py --sensors=6 --years=2015-2016  --monthly --plot```
 
-Again we consider the outdoor temperature but this time we compute statistics for each month between 2015 and 2016, thus obtaining an actual climate diagram. In my case, 204,679 data points were taken into account with a total data quality of 97% (see below for a discusssion of data quality), so the average over these two years is quite accurate.
+Again we consider the outdoor temperature but this time we compute statistics for each month between 2015 and 2016, thus obtaining an actual climate diagram. In my case, 204,679 data points were taken into account with a total data quality of 97% (see below for a discussion of data quality), so the average over these two years is quite accurate.
 
 ![](doc/Climate.png) 
 
@@ -56,6 +56,36 @@ In this section, the functionality of WeatherStats is discussed in more detail.
 The backbone of WeatherStats is the local SQLite database ```Weather.db``` in the directory of WeatherStats. If you just downloaded WeatherStats, you need to create an empty database with the program ```CreateEmptyDB.py```. I suggest taking a look at this database with an SQLite browser like [DB Browser for SQLite](http://sqlitebrowser.org). With such a browser you can also edit the tables and do some fine-tuning. The basic idea behind the structure of the database is as follows. 
 
 ####Sensors
-We will manage data of arbitrary and arbitrarily many sensors, so there is a table called **Sensors** listing these with additional information. Each sensor has a unique id given by the **Id** column. This is also the id you can pass to the ```Stats.py``` program. The meaning of the **Measurand**, **Unit**, and **Description** columns should be clear. In the **Calibration** column you can define a fixed calibration for each sensor meaning that this value will be added to each recorded value to get the actual value. For example, I know that the humidity of my outdoor humidity sensor is always 6% too low, so I set calibration to 6. The column **pph** gives the temporal resolution of the sensor in *points per hour* (pph). For example, Netatmo devices record one value every 5 minutes, so this is 12 pph. This information is used for the quality analysis of the data. 
+We will manage data of arbitrary and arbitrarily many sensors, so there is a table called Sensors listing these with additional information. Each sensor has a unique id given by the **Id** column. This is also the id you can pass to the ```Stats.py``` program. The meaning of the **Measurand**, **Unit**, and **Description** columns should be clear. In the **Calibration** column you can define a fixed calibration for each sensor meaning that this value will be added to each recorded value to get the actual value. For example, I know that the humidity of my outdoor humidity sensor is always 6% too low, so I set calibration to 6. The column **pph** gives the temporal resolution of the sensor in *points per hour* (pph). For example, Netatmo devices record one value every 5 minutes, so this is 12 pph. This information is used for the quality analysis of the data. Finally, there is the column **Module**: for us, a module is a collection of sensors and in this column the id of the corresponding module is specified. So, all sensors with the same module id belong to the same module. We will discuss this point of view in more detail below. 
 
-###Data quality
+####Adding a sensor
+You can manually add a sensor with the program ```AddSensor.py```.
+
+####Data
+Each sensor gets an own table for its data and this will be called **DataN**, where N is the sensor id. This splitting into distinct tables makes computations a bit quicker if you have a lot of records. The structure of the data tables is simple: at a given UNIX timestamp given by **Timestamp** the sensor value at this time is listed in the **Values** column. Giving the time as a UNIX timestamp is probably most convenient since it is timezone and daylight saving independent. Netatmo stores the data on their servers also using UNIX timestamps. Of course, for the analysis we would rather like to use local time instead of timestamps. This local time is given by the columns **Year**, **Month**, **Day**, **Hour**, **Minute**, **Second**. But the question is: what is local? To convert the timestamp to local time we need to know in which timezone the sensor was located at each timestamp (we may have moved the sensor in the past). This is taken care of by the ModuleLocations table. Let us first discuss the Modules table.  
+
+####Modules
+As described above, a module is a collection of sensors and with this table we manage the modules. The column **Id** is again the unique id of each module as referred to by the Sensors table. The **Description** column is again obvious. The reason why we package sensors into modules is that in this way we can easily set the geographic locations of sensors.
+
+####ModuleLocations
+Here, we manage the geographic locations of modules (and thus, of sensors). For each module given by **ModuleId** we set for a given defined by **BeginTimestamp** and **EndTimestamp** in UNIX timestamps a geographic location id given by **LocationId**. So, ModuleId was between BeginTimestamp and EndtimeStamp located at LocationId. The idea here is that we may at some point move our module to another location (perhaps because we moved to another house) and we want to keep track of this since if we actually moved to another timezone we have to get the correct local time of the timestamps of the data records. 
+
+####Locations
+Here, we manage the locations as referred to by the LocationId column in the ModuleLocations table. The column **Id** is this LocationId and the meaning of the remaining columns **PositionNorth**, **PositionEast**, **Elevation**, **Description**, and **Timezone** is obvious. 
+
+####DataFull
+The table DataFullN, where N is the sensor id, is a view joining several tables to match a timestamp with the timezone of the corresponding module. Using this view one can easily convert the timestamps in the data table to local times. This is done automatically by the program ```SetDatesInDB.py```. If you remember that some module was in the past for a certain time located at another timezone, you can add this information to the ModuleLocations table and run ```SetDatesInDB.py --all``` to recompute all local times.
+
+###Netatmo
+If you want to manage and analyze data of [Netatmo](https://www.netatmo.com/) devices, most of what was discussed above is handled automatically by the ```AddNetatmo.py``` and ```UpdateNetatmo.py``` programs. Sensors, modules, locations (timezones), etc. are all obtained from the servers. In most cases you don't have to look at the database at all, you can directly start computing statistics using the ```Stats.py``` program. The only thing you might want to do is to define a non-zero calibration for a sensor and to set location windows for modules as described above (the data on the Netatmo servers won't take timezone changes into account, we do). You can do all this easily with an SQLite browser like [DB Browser for SQLite](http://sqlitebrowser.org).
+
+###Stats
+
+The program ```Stats.py``` computes statistics from the database for one or more sensors given by the ```sensors``` option. 
+
+
+####Filters
+One important aspect is the possibility to compute statistics only for certain time windows or even more general time patterns. There are several options, which you can view using ```Stats.py --help```, to define such **filters** for the statistics. You can check the examples at the beginning to see how it works.
+
+####Data quality
+One important aspect is data quality. Imagine you want to compute statistics for a whole month, say May, but for some reason your sensor stopped working at May 7. Then you need to be informed that a lot of data is missing and that your statistics are corrupt. This is taken care of by the ```Stats.py``` program with the quality information. This is a percentage computed as follows. For each hour lying in the selection defined by the filters we check if we indeed have as many data points as described by the **pph** column of the sensor. If this is not the case, we count this particular hour as a *bad hour*. The data quality is now the quotient of the number of bad hours by the number of all hours in the selection. With the option ```missing``` you can output all the *bad hours* to see where your data is corrupt. 

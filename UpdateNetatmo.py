@@ -36,6 +36,7 @@ import getpass
 from lib import DateHelper
 from lib import Tools
 from SetDatesInDB import SetDates
+from AddSensor import AddNewDataTable
 import sys
 
 
@@ -43,68 +44,6 @@ import sys
 #database connection
 dbconn = sqlite3.connect('Weather.db')
 dbcursor = dbconn.cursor()
-
-##############################################################################
-#Adds new table DataX where X is the sensor id
-def AddNewDataTable(sensor):
-				
-	dbcursor.execute(\
-		"CREATE TABLE Data"+str(sensor)+" (\n" \
-		"`Timestamp` BIGINT,\n" \
-		"`Value` DECIMAL,\n" \
-		"`Year` SMALLINT,\n" \
-		"`Month` TINYINT,\n" \
-		"`Day` TINYINT,\n" \
-		"`Hour` TINYINT,\n" \
-		"`Minute` TINYINT,\n" \
-		"`Second` TINYINT,\n" \
-		"PRIMARY KEY(Timestamp, Value) ON CONFLICT REPLACE)"\
-	)
-	
-	#dbcursor.execute("CREATE INDEX idx ON Data"+str(sensor)+" (Timestamp ASC, Sensor ASC)")
-
-	dbcursor.execute(\
-		"CREATE VIEW Data"+str(sensor)+"Full AS\n"\
-		"SELECT Data"+str(sensor)+".Timestamp, Data"+str(sensor)+".Value, (Data"+str(sensor)+".Value+Sensors.Calibration) AS ValueCalibrated,Data"+str(sensor)+".Year, Data"+str(sensor)+".Month, Data"+str(sensor)+".Day, Data"+str(sensor)+".Hour, Data"+str(sensor)+".Minute, Data"+str(sensor)+".Second, Locations.Id AS Location,  Locations.Description AS LocationDescription, Locations.Timezone\n"\
-		"FROM\n"\
-   		"  Data"+str(sensor)+"\n"\
-        "INNER JOIN\n"\
-        "  Sensors\n"\
-        "ON Sensors.Id = "+str(sensor)+"\n"\
-		"INNER JOIN\n"\
-		  "ModuleLocations\n"\
-		"ON Sensors.Module = ModuleLocations.ModuleId\n"\
-		"INNER JOIN\n"\
-		  "Locations\n"\
-		"ON ModuleLocations.LocationId = Locations.Id\n"\
-		"WHERE Data"+str(sensor)+".Timestamp BETWEEN ModuleLocations.BeginTimestamp AND ModuleLocations.EndTimestamp\n"\
-		"ORDER BY Data"+str(sensor)+".Year ASC, Data"+str(sensor)+".Month ASC, Data"+str(sensor)+".Day ASC, Data"+str(sensor)+".Hour ASC, Data"+str(sensor)+".Minute ASC, Data"+str(sensor)+".Second ASC"\
-	)
-		
-#if this would work not only for UTC but for arbitrary timezone, I would not need year, month, etc. in the table...but sqlite seems not to support this.
-#	dbcursor.execute(\
-#		"CREATE VIEW DataWithUTC AS\
-#		SELECT Data.Timestamp, Sensors.Id AS Sensor, Data.Value,\
-#		Locations.Timezone,\
-#		strftime('%Y', datetime(Data.Timestamp, 'unixepoch', 'utc')) As UTCYear,\
-#  		strftime('%m', datetime(Data.Timestamp, 'unixepoch', 'utc')) As UTCMonth,\
-#   		strftime('%d', datetime(Data.Timestamp, 'unixepoch', 'utc')) As UTCDay,\
-#   		strftime('%H', datetime(Data.Timestamp, 'unixepoch', 'utc')) As UTCHour,\
-#   		strftime('%M', datetime(Data.Timestamp, 'unixepoch', 'utc')) As UTCMinute,\
-#   		strftime('%S', datetime(Data.Timestamp, 'unixepoch', 'utc')) As UTCSecond\
-#		FROM\
-#    		Data\
-#        INNER JOIN\
-#    		Sensors\
-#        ON Data.Sensor = Sensors.Id\
-#		INNER JOIN\
-#			ModuleLocations\
-#		ON Sensors.Module = ModuleLocations.ModuleId\
-#		INNER JOIN\
-#			Locations\
-#		ON ModuleLocations.LocationId = Locations.Id\
-#		WHERE Data.Timestamp BETWEEN ModuleLocations.BeginTimestamp AND ModuleLocations.EndTimestamp\
-#		ORDER BY Timestamp ASC")
 		
 	
 ##############################################################################
