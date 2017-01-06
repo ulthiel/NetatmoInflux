@@ -84,6 +84,7 @@ This computes statistics for the outdoor temperature between 7 and 8 o'clock bet
 
 
 <a name="details"></a>
+
 ## Detailed functionality
 
 In this section, the functionality of WeatherStats is discussed in more detail. 
@@ -124,6 +125,7 @@ The program ```Stats``` computes statistics from the database for one or more se
 One important aspect is the possibility to compute statistics only for certain time windows or even more general time patterns. There are several options, which you can view using ```Stats --help```, to define such **filters** for the statistics. You can check the examples at the beginning to see how it works.
 
 <a name="quality"></a>
+
 #### Data quality 
 One important aspect is data quality. Imagine you want to compute statistics for a whole month, say May, but for some reason your sensor stopped working at May 7. Then you need to be informed that a lot of data is missing and that your statistics are corrupt. This is taken care of by the ```Stats``` program with the quality information. This is a percentage computed as follows. For each hour lying in the selection defined by the filters we check if we indeed have as many data points as described by the **pph** column of the sensor. If this is not the case, we count this particular hour as a *bad hour*. The data quality is now the quotient of the number of bad hours by the number of all hours in the selection. With the option ```missing``` you can output all the *bad hours* to see where your data is corrupt. The quality output furthermore shows how many data points have been considered and how many would have been considered with the pph resolution.
 
