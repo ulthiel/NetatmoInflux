@@ -173,10 +173,17 @@ def Analyze(sensor, datehours, data):
 	else:
 		color = "warning"
 	
+	Tools.PrintWithoutNewline("                   ")
+	Tools.PrintWithoutNewline("")
+	
 	ColorPrint.ColorPrint("    Quality:  \t"+str(int(quality))+"% ("+str(len(datehours)-len(nonsufficientdatehours))+"/"+str(len(datehours))+", "+str(int(availablepoints))+"/"+str(int(theorypoints))+")", color)
 	
 	#total data
-	totaldata = numpy.concatenate([data[d] for d in data.keys()])
+	try:
+		totaldata = numpy.concatenate([data[d] for d in data.keys()])
+	except:
+		res = dict()
+		return res
 	
 	#total maximum
 	totalmax = totaldata['value'].max()	
@@ -667,7 +674,12 @@ def ReadData(sensor,years, months, days, hours, userstart, userend):
 #Overall stats
 for sensor in sensors:
 
-	measurand = ((dbcursor.execute("SELECT Measurand From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]
+	try:
+		measurand = ((dbcursor.execute("SELECT Measurand From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]
+	except:
+		ColorPrint.ColorPrint("No such sensor", "error")
+		sys.exit(0)
+		
 	unit = ((dbcursor.execute("SELECT Unit From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]
 	calibration = ((dbcursor.execute("SELECT Calibration From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]	
 	description = ((dbcursor.execute("SELECT Description From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]	
@@ -695,6 +707,8 @@ for sensor in sensors:
 	datehours = res[0]
 	data = res[1]
 	res = Analyze(sensor, datehours, data)
+	if len(res.keys()) == 0:
+		continue
 	plotting = False
 		
 	if yearlystats:
