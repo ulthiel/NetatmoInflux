@@ -38,6 +38,7 @@ from lib import Tools
 from SetDatesInDB import SetDates
 from AddSensor import AddNewDataTable
 import sys
+import signal
 
 
 ##############################################################################
@@ -239,7 +240,18 @@ def UpdateNetatmo():
 	for account in res:
 		UpdateNetatmoForAccount(account)
 
-	
+##############################################################################
+#Ctrl+C handler
+def signal_handler(signal, frame):
+	ColorPrint.ColorPrint("\nYou pressed Ctrl+C", "error")
+	SetDates(dbconn, dbcursor)
+	dbconn.commit()
+	dbconn.close()
+	sys.exit(0)
+signal.signal(signal.SIGINT, signal_handler)
+
+##############################################################################
+#Main	
 UpdateNetatmo()
 SetDates(dbconn, dbcursor)
 dbconn.commit()

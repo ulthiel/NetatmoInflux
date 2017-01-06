@@ -31,6 +31,7 @@ import sqlite3
 from optparse import OptionParser
 from lib import Tools
 from lib import DateHelper
+import signal
 
 setall = False
 
@@ -68,6 +69,13 @@ def SetDates(dbconn, dbcursor):
 		
 	Tools.PrintWithoutNewline("")
 		
+##############################################################################
+#Ctrl+C handler
+def signal_handler(signal, frame):
+    ColorPrint.ColorPrint("\nYou pressed Ctrl+C", "error")
+    sys.exit(0)
+signal.signal(signal.SIGINT, signal_handler)
+
 ##############################################################################
 #Standalone program
 if __name__ == "__main__":

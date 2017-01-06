@@ -41,7 +41,7 @@ from lib import DateHelper
 from lib import Tools
 import FileDialog #to fix pyInstaller problem with matplotlib
 import math
-
+import signal
 
 ##############################################################################
 #parse options
@@ -670,6 +670,13 @@ def ReadData(sensor,years, months, days, hours, userstart, userend):
 	return [datehours,data]
 
 
+##############################################################################
+#Ctrl+C handler
+def signal_handler(signal, frame):
+    ColorPrint.ColorPrint("\nYou pressed Ctrl+C", "error")
+    sys.exit(0)
+signal.signal(signal.SIGINT, signal_handler)  
+        
 ##############################################################################		
 #Overall stats
 for sensor in sensors:
