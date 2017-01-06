@@ -40,7 +40,7 @@ from lib import ColorPrint
 from lib import DateHelper
 from lib import Tools
 import FileDialog #to fix pyInstaller problem with matplotlib
-
+import math
 
 
 ##############################################################################
@@ -57,7 +57,9 @@ parser.add_option("--end", dest="end",help="End date (e.g., --end=2015-05-24)")
 parser.add_option("--missing", action="store_true", dest="printmissing",help="Print missing data", default=False)
 parser.add_option("--yearly", action="store_true", dest="yearlystats",help="Compute yearly data", default=False)
 parser.add_option("--monthly", action="store_true", dest="monthlystats",help="Compute monthly data", default=False)
-parser.add_option("--plot", action="store_true", dest="plotting",help="Create plots", default=False)
+parser.add_option("--daily", action="store_true", dest="dailystats",help="Compute daily data", default=False)
+parser.add_option("--plotavg", action="store_true", dest="plottingavg",help="Create average plot", default=False)
+parser.add_option("--plot", action="store_true", dest="plotting",help="Create continuous plot", default=False)
 (options, args) = parser.parse_args()
 sensors = options.sensors
 modules = options.modules
@@ -70,6 +72,8 @@ end = options.end
 printmissing = options.printmissing
 yearlystats = options.yearlystats
 monthlystats = options.monthlystats
+dailystats = options.dailystats
+plottingavg = options.plottingavg
 plotting = options.plotting
 
 	
@@ -148,6 +152,8 @@ if years is not None:
 ##############################################################################
 def Analyze(sensor, datehours, data):
 		
+	Tools.PrintWithoutNewline("    Computing...")
+	
 	#sensor quality
 	pph = ((dbcursor.execute("SELECT pph FROM Sensors WHERE Id IS "+str(sensor))).fetchone())[0]
 	nonsufficientdatehours = []
@@ -251,6 +257,43 @@ def Analyze(sensor, datehours, data):
 	res["totalmin"] = totalmin
 	res["dailyminavg"] = dailyminavg
 	res["dailymaxavg"] = dailymaxavg
+	
+	if plotting:
+		totaldata = []
+		totaldatetuples = []
+		for d in datehours:
+			if not d in data.keys():
+				continue 
+			totaldatetuples = totaldatetuples + [(x[2], x[3], x[4], x[5], x[6], x[7]) for x in data[d]]
+			totaldata = totaldata + [x[1] for x in data[d]]
+		
+		if len(set([(x[0]) for x in totaldatetuples])) == 1:
+			if len(set([(x[1]) for x in totaldatetuples])) == 1:
+				if len(set([(x[2]) for x in totaldatetuples])) == 1:
+					datelabels = [str(x[3]).zfill(2)+":"+str(x[4]).zfill(2)+":"+str(x[5]).zfill(2) for x in totaldatetuples]
+				else:
+					datelabels = [str(x[2]).zfill(2) for x in totaldatetuples]
+			else:
+				datelabels = [str(x[1]).zfill(2)+"-"+str(x[2]).zfill(2) for x in totaldatetuples]
+		else:
+			datelabels = [str(x[0])+"-"+str(x[1]).zfill(2)+"-"+str(x[2]).zfill(2) for x in totaldatetuples]
+			
+ 		plt.plot(totaldata)
+ 		
+ 		#x axis labels
+ 		step = int(len(totaldata)/20)
+ 		xticks = range(0,len(totaldata))[0::step]
+ 		plt.xticks(xticks, [datelabels[i] for i in xticks], rotation=70)
+ 		plt.xlabel("Date")
+ 		plt.ylabel(measurand + " ("+unit+")")
+  			
+ 		print ""
+ 		title = raw_input("    Plot title:\t")
+ 		if title == "":
+ 			title = "Statistics for sensor " + str(sensor)
+  		plt.title(title)
+ 			
+ 		plt.show()
 	
 	
 	return res
@@ -605,11 +648,11 @@ def ReadData(sensor,years, months, days, hours, userstart, userend):
 			Tools.PrintWithoutNewline("    Reading:\t"+str(int(100.0*float(progresscounter)/float(N)))+"%")
 			continue
 		for datehour in datehoursfordatemonth:
-			filteredres = [ (r[0],r[1]) for r in res if r[2] == datehour[0] and r[3] == datehour[1] and r[4] == datehour[2] and r[5] == datehour[3] ]
+			filteredres = [ (r[0],r[1],r[2],r[3],r[4],r[5],r[6],r[7]) for r in res if r[2] == datehour[0] and r[3] == datehour[1] and r[4] == datehour[2] and r[5] == datehour[3] ]
 			if len(filteredres) == 0:
 				continue
 			numberofdatapoints = numberofdatapoints + len(filteredres)
-			data[datehour] = numpy.array(filteredres, dtype=[('timestamp', numpy.uint32),('value',numpy.float64)])	
+			data[datehour] = numpy.array(filteredres, dtype=[('timestamp', numpy.uint32),('value',numpy.float64),('year', numpy.uint16),('month', numpy.uint16),('day', numpy.uint16),('hour', numpy.uint16),('minute', numpy.uint16),('second', numpy.uint16)])	
 			
 			progresscounter = progresscounter + 1
 			Tools.PrintWithoutNewline("    Reading:\t"+str(int(100.0*float(progresscounter)/float(N)))+"%")
@@ -651,10 +694,10 @@ for sensor in sensors:
 		continue
 	datehours = res[0]
 	data = res[1]
-	Analyze(sensor, datehours, data)
-	
-	
-	if yearlystats and not monthlystats:
+	res = Analyze(sensor, datehours, data)
+	plotting = False
+		
+	if yearlystats:
 		yearstmp = sorted(list(set([d[0] for d in datehours])), key=int)
 		totalavg = []
 		totalsigma = []
@@ -678,8 +721,8 @@ for sensor in sensors:
  			dailymaxavg.append(res["dailymaxavg"])
  			dailyminavg.append(res["dailyminavg"])
  			
- 		if plotting:
- 			totalavgplot, = plt.plot(yearstmp, totalavg, 'yo')
+ 		if plottingavg:
+ 			totalavgplot, = plt.plot(yearstmp, totalavg, 'go')
  			totalmaxplot, = plt.plot(yearstmp, totalmax, 'ro')
  			totalminplot, = plt.plot(yearstmp, totalmin, 'bo')
  			dailymaxavgplot, = plt.plot(yearstmp, dailymaxavg, 'r^')
@@ -701,7 +744,7 @@ for sensor in sensors:
   			
  			plt.show()
  			
- 	if monthlystats and not yearlystats:
+ 	if monthlystats:
  		monthstmp = sorted(list(set([d[1] for d in datehours])), key=int)
  		totalavg = []
 		totalsigma = []
@@ -726,8 +769,8 @@ for sensor in sensors:
  			dailymaxavg.append(res["dailymaxavg"])
  			dailyminavg.append(res["dailyminavg"])
 
-		if plotting:
- 			totalavgplot, = plt.plot(monthstmp, totalavg, 'yo')
+		if plottingavg:
+ 			totalavgplot, = plt.plot(monthstmp, totalavg, 'go')
  			totalmaxplot, = plt.plot(monthstmp, totalmax, 'ro')
  			totalminplot, = plt.plot(monthstmp, totalmin, 'bo')
  			dailymaxavgplot, = plt.plot(monthstmp, dailymaxavg, 'r^')
@@ -745,6 +788,51 @@ for sensor in sensors:
  			title = raw_input("    Plot title:\t")
  			if title == "":
  				title = "Monthly statistics for sensor " + str(sensor)
+  			plt.title(title)
+ 			
+ 			plt.show()
+ 	
+ 	if dailystats:
+ 		daysstmp = sorted(list(set([d[2] for d in datehours])), key=int)
+ 		totalavg = []
+		totalsigma = []
+		totalmax = []
+		totalmin = []
+		dailymaxavg = []
+		dailyminavg = []
+ 		for t in daysstmp:
+			tdatehours = [ d for d in datehours if d[2] == t ]
+			tdata = dict()	
+			for d in tdatehours:
+				if d in data.keys():
+					tdata[d] = data[d]
+			print ""
+			print "  Statistics for day " + str(t)+":"
+ 			res = Analyze(sensor, tdatehours, tdata)	
+ 			totalavg.append(res["totalavg"])
+ 			totalsigma.append(res["totalsigma"])
+ 			totalmax.append(res["totalmax"])
+ 			totalmin.append(res["totalmin"])
+ 			dailymaxavg.append(res["dailymaxavg"])
+ 			dailyminavg.append(res["dailyminavg"])
+ 			
+ 		if plottingavg:
+ 			totalavgplot, = plt.plot(daysstmp, totalavg, 'go')
+ 			totalmaxplot, = plt.plot(daysstmp, totalmax, 'ro')
+ 			totalminplot, = plt.plot(daysstmp, totalmin, 'bo')
+  			plt.xlim([min(daysstmp)-1,max(daysstmp)+1])
+ 			plt.xticks(daysstmp, daysstmp)
+ 			plt.xlabel("Day")
+ 			plt.ylabel(measurand + " ("+unit+")")
+ 			#plt.errorbar(yearstmp, totalavg, totalsigma)
+ 			fontP = FontProperties()
+  			fontP.set_size('small')
+ 			plt.legend([totalmaxplot, totalavgplot, totalminplot], ["Maximum",  "Average", "Minimum"], prop = fontP)
+ 			
+ 			print ""
+ 			title = raw_input("    Plot title:\t")
+ 			if title == "":
+ 				title = "Daily statistics for sensor " + str(sensor)
   			plt.title(title)
  			
  			plt.show()
