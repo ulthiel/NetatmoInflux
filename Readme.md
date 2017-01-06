@@ -14,13 +14,13 @@ For Windows and MacOS it's easiest to download the stand-alone [binaries](https:
 
 
 ## Quick start
-The following is a short guide for using WeatherStats to manage and analyze Netatmo data. You can find more detailed information below. 
+The following is a short guide for using WeatherStats to manage and analyze Netatmo data. The statistic example are general features, not depending on Netatmo. You can find more detailed information [in the next section](#details). 
  
-First, create an empty database with the program ```CreateEmptyDB```. Add your Netatmo account using ```AddNetatmo``` and follow the on-screen instructions for obtaining a client secret. You can add as many accounts as you like. Now, run ```UpdateNetatmo```. This automatically adds all available sensors and modules to the database and also downloads all available data which is then inserted into the SQLite database ```Weather.db```. The initial download may take a while (roughly 30 minutes for 2 years of data). If you run this program again later, only new data will be added and this is much quicker of course. In this way you can always keep an up-to-date database. If you get an HTTP error while updating, you either misspelled your account credentials or it's a timeout by the Netatmo servers—just try again at a later time. You can now compute statistics using the program ```Stats```. Running ```Stats --help``` lists the available options. The main feature is that you can define certain filters to analyze only specific time windows. Here are several examples which should make clear how it works:
+First, create an empty database with the program ```CreateEmptyDB```. Add your Netatmo account using ```AddNetatmo``` and follow the on-screen instructions for obtaining a client secret. You can add as many accounts as you like. Now, run ```UpdateNetatmo```. This automatically adds all available sensors and modules to the database and also downloads all available data which is then inserted into the SQLite database ```Weather.db```. The initial download may take a while (roughly 30 minutes for 2 years of data). If you run this program again later, only new data will be added and this is much quicker of course. In this way you can always keep an up-to-date database. If you get an HTTP error while updating, you either misspelled your account credentials or it's a timeout by the Netatmo servers—just try again at a later time. You can now compute statistics using the program ```Stats```. Running ```Stats --help``` lists the available options. The main feature is that you can define certain **filters** to analyze only specific time windows. Here are several examples which should make clear how it works:
 
-#### Example 1
+#### Example: Overall statistics
 ```
-./Stats.py --sensors==6
+./Stats.exe --sensors==6
 Sensor: 		6
   Module: 		2
   Measurand:	Temperature (°C)
@@ -36,33 +36,54 @@ Sensor: 		6
     Daily max:	16.172 (sigma=8.143)
     Daily min:	8.24 (sigma=6.599)
 ```
-As described below in more detail, every sensor gets a unique fixed id. You can list the sensors with the ```ListSensors``` program. In my case, sensor 6 is the outdoor temperature sensor. Calling ```Stats``` with the option ```--sensors=6``` and no further option computes overall statistics for this sensor taking all available data into account. Again, this may take a while. In my case, 227,745 data points over more than two years were taken into account.
+As described [below](#details) in more detail, every sensor gets a unique fixed id. You can list the sensors with the ```ListSensors``` program. In my case, sensor 6 is the outdoor temperature sensor. Calling ```Stats``` with the option ```--sensors=6``` and no further option computes overall statistics for this sensor taking all available data into account. Again, this may take a while. In my case, 227,745 data points over more than two years were taken into account. The [data quality](#quality) was 97%, so the coverage is quite good.
 
-#### Example 2
+#### Example: Diagram for the last week
 
-```./Stats.py --sensors=6 --years=2014-2016 --months=12 --days=24-26 --yearly --plot```
+```
+Stats.exe --sensors=6 --lastweek --plot
+```
 
-With this selection we can get an overview of the temperatures during Christmas over the years 2014 to 2016. The additional ```plot``` option also creates a plot of the results. 
+The ```lastweek``` filter selects only data from the last seven days. The additional ```plot``` option creates a continuous plot of the data. Similarly, the ```lastmonth``` option selects the last 31 days.
+
+![](doc/Week.png)
+
+
+#### Example: Month diagram
+
+```
+Stats.exe --sensors=6 --years=2016 --months=12 --plot
+```
+
+This filter selects only data from December 2016. 
+
+![](doc/December.png)
+
+#### Example: Average over Christmas
+
+```Stats.exe --sensors=6 --years=2014-2016 --months=12 --days=24-26 --yearly --plotavg```
+
+With this selection we can get an overview of the temperatures during Christmas over the years 2014 to 2016. The additional ```plotavg``` option creates a plot of the results. 
 
 ![](doc/Christmas.png)
 
-#### Example 3
+#### Example: Monthly average
 
-```./Stats.py --sensors=6 --years=2015-2016  --monthly --plot```
+```Stats.exe --sensors=6 --years=2015-2016  --monthly --plotavg```
 
 Again we consider the outdoor temperature but this time we compute statistics for each month between 2015 and 2016, thus obtaining an actual climate diagram. In my case, 204,679 data points were taken into account with a total data quality of 97% (see below for a discussion of data quality), so the average over these two years is quite accurate.
 
 ![](doc/Climate.png) 
 
-#### Example 4
+#### Example: More filters
 
-```./Stats.py --sensors=6 --start=2016-05-11 --end=2016-06-17 --hours=7-8```
+```Stats.exe --sensors=6 --start=2016-05-11 --end=2016-06-17 --hours=7-8```
 
 This computes statistics for the outdoor temperature between 7 and 8 o'clock between May 11, 2016 and June 17, 2016.
 
 
 
-
+<a name="details"></a>
 ## Detailed functionality
 
 In this section, the functionality of WeatherStats is discussed in more detail. 
@@ -102,7 +123,8 @@ The program ```Stats``` computes statistics from the database for one or more se
 #### Filters
 One important aspect is the possibility to compute statistics only for certain time windows or even more general time patterns. There are several options, which you can view using ```Stats --help```, to define such **filters** for the statistics. You can check the examples at the beginning to see how it works.
 
-#### Data quality
+<a name="quality"></a>
+#### Data quality 
 One important aspect is data quality. Imagine you want to compute statistics for a whole month, say May, but for some reason your sensor stopped working at May 7. Then you need to be informed that a lot of data is missing and that your statistics are corrupt. This is taken care of by the ```Stats``` program with the quality information. This is a percentage computed as follows. For each hour lying in the selection defined by the filters we check if we indeed have as many data points as described by the **pph** column of the sensor. If this is not the case, we count this particular hour as a *bad hour*. The data quality is now the quotient of the number of bad hours by the number of all hours in the selection. With the option ```missing``` you can output all the *bad hours* to see where your data is corrupt. The quality output furthermore shows how many data points have been considered and how many would have been considered with the pph resolution.
 
 <!---

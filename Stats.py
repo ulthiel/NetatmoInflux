@@ -54,6 +54,8 @@ parser.add_option("--months", dest="months",help="Months (e.g., --months=5-8,12)
 parser.add_option("--years", dest="years",help="Years (e.g., --years=2012,2014-2015)")
 parser.add_option("--start", dest="start",help="Start date (e.g., --start=2014-05-24)")
 parser.add_option("--end", dest="end",help="End date (e.g., --end=2015-05-24)")
+parser.add_option("--lastweek", action="store_true", dest="lastweek",help="Data of the last seven days", default=False)
+parser.add_option("--lastmonth", action="store_true", dest="lastmonth",help="Data of the last 31 days", default=False)
 parser.add_option("--missing", action="store_true", dest="printmissing",help="Print missing data", default=False)
 parser.add_option("--yearly", action="store_true", dest="yearlystats",help="Compute yearly data", default=False)
 parser.add_option("--monthly", action="store_true", dest="monthlystats",help="Compute monthly data", default=False)
@@ -75,6 +77,8 @@ monthlystats = options.monthlystats
 dailystats = options.dailystats
 plottingavg = options.plottingavg
 plotting = options.plotting
+lastweek = options.lastweek
+lastmonth = options.lastmonth
 
 	
 ##############################################################################
@@ -123,16 +127,6 @@ for module in modules:
 	for sensor in res:
 		sensors.append(sensor)	
 		
-##############################################################################
-#datetime for timestamp taking timezone of sensor location into account
-#timezoneforsensor = dict()
-#for sensor in sensors:
-#	module = (dbcursor.execute("SELECT Module FROM Sensors WHERE Id IS "+str(sensor))).fetchone()[0]
-#	dbcursor.execute("SELECT BeginTimestamp, EndTimestamp, Timezone FROM ModuleLocationsFull WHERE Module IS "+str(module))
-#	res = dbcursor.fetchall()
-	#for loca
-#def DatetimeFromTimestamp(timestamp, sensor):
-
 	
 ##############################################################################
 #parse time filter options
@@ -148,6 +142,27 @@ if months is not None:
 if years is not None:
 	years = parse_range_list(years)
 	
+##############################################################################
+#Lastweek option
+if lastweek:
+	res = DateHelper.SubtractDaysFromCurrentDate(6)
+	years = None
+	months = None
+	days = None
+	hours = None
+	start = res[0]
+	end = res[1]
+	
+##############################################################################
+#Lastmonth option
+if lastmonth:
+	res = DateHelper.SubtractDaysFromCurrentDate(30)
+	years = None
+	months = None
+	days = None
+	hours = None
+	start = res[0]
+	end = res[1]
 	
 ##############################################################################
 def Analyze(sensor, datehours, data):
@@ -264,7 +279,7 @@ def Analyze(sensor, datehours, data):
 	res["totalmin"] = totalmin
 	res["dailyminavg"] = dailyminavg
 	res["dailymaxavg"] = dailymaxavg
-	
+
 	if plotting:
 		totaldata = []
 		totaldatetuples = []

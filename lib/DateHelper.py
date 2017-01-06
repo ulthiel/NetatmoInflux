@@ -114,3 +114,12 @@ def NumberOfDaysBetween(start, end):
 	delta = b - a
 	return delta.days 
 	
+##############################################################################
+#Returns current date and date obtained by subtracting a given amount of days
+def SubtractDaysFromCurrentDate(days):
+	b = datetime.datetime.today()
+	a = b - datetime.timedelta(days=days)
+	date_format = "%Y-%m-%d"
+	a = datetime.datetime.strftime(a, date_format)
+	b = datetime.datetime.strftime(b, date_format)
+	return [a,b]
