@@ -18,7 +18,7 @@ The following is a short guide for using WeatherStats to manage and analyze Neta
  
 First, create an empty database with the program ```CreateEmptyDB```. Add your Netatmo account using ```AddNetatmo``` and follow the on-screen instructions for obtaining a client secret. You can add as many accounts as you like. Now, run ```UpdateNetatmo```. This automatically adds all available sensors and modules to the database and also downloads all available data which is then inserted into the SQLite database ```Weather.db```. The initial download may take a while (roughly 30 minutes for 2 years of data). If you run this program again later, only new data will be added and this is much quicker of course. In this way you can always keep an up-to-date database. If you get an HTTP error while updating, you either misspelled your account credentials or it's a timeout by the Netatmo servers—just try again at a later time. You can now compute statistics using the program ```Stats```. Running ```Stats --help``` lists the available options. The main feature is that you can define certain **filters** to analyze only specific time windows. Here are several examples which should make clear how it works:
 
-#### Example: Diagram for the last 31 days
+### Example: Diagram for the last 31 days
 ```
 Stats.exe --sensors=5 --lastmonth --plot
 Sensor: 		5
@@ -42,7 +42,7 @@ As described [below](#details) in more detail, every sensor gets a unique fixed 
 
 ![](doc/AirPressure.png)
 
-#### Example: Closer look
+### Example: Closer look
 
 In the example above we see a huge air pressure drop between December 29 and January 1, so let's take a closer look at this time window.
 
@@ -51,7 +51,7 @@ Stats.exe --sensors=5 --start=2016-12-29 --end=2017-01-01 --plot
 
 ```
 
-#### Example: Average over Christmas
+### Example: Average over Christmas
 
 ```Stats.exe --sensors=6 --years=2014-2016 --months=12 --days=24-26 --yearly --plotavg```
 
@@ -59,7 +59,7 @@ Sensor 6 is my outdoor temperature sensors. With this selection we can get an ov
 
 ![](doc/Christmas.png)
 
-#### Example: Monthly average
+### Example: Monthly average
 
 ```Stats.exe --sensors=6 --years=2015-2016  --monthly --plotavg```
 
