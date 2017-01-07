@@ -18,52 +18,44 @@ The following is a short guide for using WeatherStats to manage and analyze Neta
  
 First, create an empty database with the program ```CreateEmptyDB```. Add your Netatmo account using ```AddNetatmo``` and follow the on-screen instructions for obtaining a client secret. You can add as many accounts as you like. Now, run ```UpdateNetatmo```. This automatically adds all available sensors and modules to the database and also downloads all available data which is then inserted into the SQLite database ```Weather.db```. The initial download may take a while (roughly 30 minutes for 2 years of data). If you run this program again later, only new data will be added and this is much quicker of course. In this way you can always keep an up-to-date database. If you get an HTTP error while updating, you either misspelled your account credentials or it's a timeout by the Netatmo servers—just try again at a later time. You can now compute statistics using the program ```Stats```. Running ```Stats --help``` lists the available options. The main feature is that you can define certain **filters** to analyze only specific time windows. Here are several examples which should make clear how it works:
 
-#### Example: Overall statistics
+#### Example: Diagram for the last 31 days
 ```
-./Stats.exe --sensors==6
-Sensor: 		6
-  Module: 		2
-  Measurand:	Temperature (°C)
+Stats.exe --sensors=5 --lastmonth --plot
+Sensor: 		5
+  Module: 		1
+  Measurand: 	Pressure (mbar)
   Calibration: 	0
   Resolution: 	12 pph
-
+  
   Overall statistics:
-    Selection: 	813 days/19512 hours between 2014-10-14 and 2017-01-03
-    Quality:  	97% (19104/19512, 227745/234144)
-    Maximum: 	37.4 (2015-08-07 17h)
-    Minimum: 	-8.5 (2014-12-29 01h)
-    Average:	12.033 (sigma=7.781)
-    Daily max:	16.172 (sigma=8.143)
-    Daily min:	8.24 (sigma=6.599)
+    Selection: 	31 days/744 hours between 2016-12-08 and 2017-01-07
+    Quality:    98% (730/744, 8779/8928)
+    Maximum: 	1040.0 (2016-12-27 21h, 2016-12-27 23h)
+    Minimum: 	1009.6 (2017-01-04 14h)
+    Average:	1025.307 (sigma=6.499)
+    Daily max:	1028.203 (sigma=6.014)
+    Daily min:	1022.774 (sigma=6.348)
+    L. drop:	16.4 (2016-12-31 09h)
+    L. climb:	25.3 (2017-01-04 20h)
 ```
-As described [below](#details) in more detail, every sensor gets a unique fixed id. You can list the sensors with the ```ListSensors``` program. In my case, sensor 6 is the outdoor temperature sensor. Calling ```Stats``` with the option ```--sensors=6``` and no further option computes overall statistics for this sensor taking all available data into account. Again, this may take a while. In my case, 227,745 data points over more than two years were taken into account. The [data quality](#quality) was 97%, so the coverage is quite good.
+As described [below](#details) in more detail, every sensor gets a unique fixed id. You can list the sensors with the ```ListSensors``` program. In my case, sensor 5 is the air pressure sensor. The ```lastmonth``` filter option takes only the last 31 days into account. Similarly, ```lastweek``` takes only the last seven days into account. For the statistics 8,779 data points were considered with a [data quality](#quality) of 98%, so the coverage is quite good and the statistics will be quite accurate. Most of the statistical output should be clear. The *L. drop* and *L. climb* values are the *largest drop* and *largest climb*, respectively. The additional ```plot``` option creates a (continuous) plot of the data. Simply calling ```Stats.exe --sensors=5``` computes statistics using all available data. Depending on the size of the database, this may take a while.
 
-#### Example: Diagram for the last week
+![](doc/AirPressure.png)
 
-```
-Stats.exe --sensors=6 --lastweek --plot
-```
+#### Example: Closer look
 
-The ```lastweek``` filter selects only data from the last seven days. The additional ```plot``` option creates a continuous plot of the data. Similarly, the ```lastmonth``` option selects the last 31 days.
-
-![](doc/Week.png)
-
-
-#### Example: Month diagram
+In the example above we see a huge air pressure drop between December 29 and January 1, so let's take a closer look at this time window.
 
 ```
-Stats.exe --sensors=6 --years=2016 --months=12 --plot
+Stats.exe --sensors=5 --start=2016-12-29 --end=2017-01-01 --plot
+
 ```
-
-This filter selects only data from December 2016. 
-
-![](doc/December.png)
 
 #### Example: Average over Christmas
 
 ```Stats.exe --sensors=6 --years=2014-2016 --months=12 --days=24-26 --yearly --plotavg```
 
-With this selection we can get an overview of the temperatures during Christmas over the years 2014 to 2016. The additional ```plotavg``` option creates a plot of the results. 
+Sensor 6 is my outdoor temperature sensors. With this selection we can get an overview of the temperatures during Christmas over the years 2014 to 2016. The additional ```plotavg``` option creates a plot of the results. 
 
 ![](doc/Christmas.png)
 
@@ -71,15 +63,10 @@ With this selection we can get an overview of the temperatures during Christmas 
 
 ```Stats.exe --sensors=6 --years=2015-2016  --monthly --plotavg```
 
-Again we consider the outdoor temperature but this time we compute statistics for each month between 2015 and 2016, thus obtaining an actual climate diagram. In my case, 204,679 data points were taken into account with a total data quality of 97% (see below for a discussion of data quality), so the average over these two years is quite accurate.
+Again we consider the outdoor temperature but this time we compute statistics for each month between 2015 and 2016, thus obtaining an actual climate diagram. In my case, 204,679 data points were taken into account with a total data quality of 97%.
+
 
 ![](doc/Climate.png) 
-
-#### Example: More filters
-
-```Stats.exe --sensors=6 --start=2016-05-11 --end=2016-06-17 --hours=7-8```
-
-This computes statistics for the outdoor temperature between 7 and 8 o'clock between May 11, 2016 and June 17, 2016.
 
 
 

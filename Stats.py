@@ -297,8 +297,8 @@ def Analyze(sensor, datehours, data):
 	
 	largestclimbdate = str(totaldata[largestclimbindex]['year'])+"-"+str(totaldata[largestclimbindex]['month']).zfill(2)+"-"+str(totaldata[largestclimbindex]['day']).zfill(2)+" "+str(totaldata[largestclimbindex]['hour']).zfill(2)
 	
-	print "    L. drop:\t" + str(largestdrop) + " ("+largestdropdate+")"
-	print "    L. climb:\t" + str(largestclimb) + " ("+largestclimbdate+")"
+	print "    L. drop:\t" + str(largestdrop) + " ("+largestdropdate+"h)"
+	print "    L. climb:\t" + str(largestclimb) + " ("+largestclimbdate+"h)"
 	
 	res = dict()
 	res["totalavg"] = totalavg
@@ -790,7 +790,7 @@ for sensor in sensors:
  			totalmaxplot, = plt.plot(yearstmp, totalmax, 'ro')
  			totalminplot, = plt.plot(yearstmp, totalmin, 'bo')
  			dailymaxavgplot, = plt.plot(yearstmp, dailymaxavg, 'r^')
- 			dailyminavgplot, = plt.plot(yearstmp, dailyminavg, 'b^')
+ 			dailyminavgplot, = plt.plot(yearstmp, dailyminavg, 'bv')
   			plt.xlim([min(yearstmp)-1,max(yearstmp)+1])
  			plt.xticks(yearstmp, yearstmp)
  			plt.xlabel("Year")
@@ -838,7 +838,7 @@ for sensor in sensors:
  			totalmaxplot, = plt.plot(monthstmp, totalmax, 'ro')
  			totalminplot, = plt.plot(monthstmp, totalmin, 'bo')
  			dailymaxavgplot, = plt.plot(monthstmp, dailymaxavg, 'r^')
- 			dailyminavgplot, = plt.plot(monthstmp, dailyminavg, 'b^')
+ 			dailyminavgplot, = plt.plot(monthstmp, dailyminavg, 'bv')
   			plt.xlim([min(monthstmp)-1,max(monthstmp)+1])
  			plt.xticks(monthstmp, monthstmp)
  			plt.xlabel("Month")
