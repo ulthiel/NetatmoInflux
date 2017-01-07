@@ -30,7 +30,7 @@ import sqlite3
 import numpy
 import time
 import datetime
-from scipy.signal import argrelextrema
+import scipy.signal
 from sets import Set
 from optparse import OptionParser
 from itertools import chain
@@ -42,6 +42,7 @@ from lib import Tools
 import FileDialog #to fix pyInstaller problem with matplotlib
 import math
 import signal
+from lib import peakdetect
 
 ##############################################################################
 #parse options
@@ -167,7 +168,7 @@ if lastmonth:
 ##############################################################################
 def Analyze(sensor, datehours, data):
 		
-	Tools.PrintWithoutNewline("    Computing...")
+	Tools.PrintWithoutNewline("    Computing...           ")
 	
 	#sensor quality
 	pph = ((dbcursor.execute("SELECT pph FROM Sensors WHERE Id IS "+str(sensor))).fetchone())[0]
@@ -188,15 +189,15 @@ def Analyze(sensor, datehours, data):
 	else:
 		color = "warning"
 	
-	Tools.PrintWithoutNewline("                   ")
+	Tools.PrintWithoutNewline("                          ")
 	Tools.PrintWithoutNewline("")
 	
 	ColorPrint.ColorPrint("    Quality:  \t"+str(int(quality))+"% ("+str(len(datehours)-len(nonsufficientdatehours))+"/"+str(len(datehours))+", "+str(int(availablepoints))+"/"+str(int(theorypoints))+")", color)
 	
 	#total data
-	try:
-		totaldata = numpy.concatenate([data[d] for d in data.keys()])
-	except:
+	totaldata = numpy.concatenate([data[d] for d in datehours if d in data.keys()])
+	
+	if len(totaldata) == 0:
 		res = dict()
 		return res
 	
@@ -272,6 +273,33 @@ def Analyze(sensor, datehours, data):
 	dailyminsigma = dailymin['value'].std()
 	print "    Daily min:\t" + str(round(dailyminavg,3)) + " (sigma=" + str(round(dailyminsigma,3))+")"	
 	
+	#Extrema
+	peaks = peakdetect.peakdetect(totaldata['value'], lookahead=pph)
+	localmaxindices = [ p[0] for p in peaks[0] ]
+	localminindices = [ p[0] for p in peaks[1] ]
+	peakindices = sorted(localmaxindices + localminindices)
+	largestclimb = 0
+	largestclimbindex = 0
+	largestdrop = 0
+	largestdropdindex = 0
+	for i in range(0,len(peakindices)-1):
+		delta = abs(totaldata['value'][peakindices[i]] - totaldata['value'][peakindices[i+1]])
+		if peakindices[i] in localmaxindices:
+			if delta > largestdrop:
+				largestdrop = delta
+				largestdropdindex = peakindices[i]
+		else:
+			if delta > largestclimb:
+				largestclimb = delta
+				largestclimbindex = peakindices[i]
+				
+	largestdropdate = str(totaldata[largestdropdindex]['year'])+"-"+str(totaldata[largestdropdindex]['month']).zfill(2)+"-"+str(totaldata[largestdropdindex]['day']).zfill(2)+" "+str(totaldata[largestdropdindex]['hour']).zfill(2)
+	
+	largestclimbdate = str(totaldata[largestclimbindex]['year'])+"-"+str(totaldata[largestclimbindex]['month']).zfill(2)+"-"+str(totaldata[largestclimbindex]['day']).zfill(2)+" "+str(totaldata[largestclimbindex]['hour']).zfill(2)
+	
+	print "    L. drop:\t" + str(largestdrop) + " ("+largestdropdate+")"
+	print "    L. climb:\t" + str(largestclimb) + " ("+largestclimbdate+")"
+	
 	res = dict()
 	res["totalavg"] = totalavg
 	res["totalsigma"] = totalsigma
@@ -281,13 +309,11 @@ def Analyze(sensor, datehours, data):
 	res["dailymaxavg"] = dailymaxavg
 
 	if plotting:
-		totaldata = []
 		totaldatetuples = []
 		for d in datehours:
 			if not d in data.keys():
 				continue 
 			totaldatetuples = totaldatetuples + [(x[2], x[3], x[4], x[5], x[6], x[7]) for x in data[d]]
-			totaldata = totaldata + [x[1] for x in data[d]]
 		
 		if len(set([(x[0]) for x in totaldatetuples])) == 1:
 			if len(set([(x[1]) for x in totaldatetuples])) == 1:
@@ -299,12 +325,14 @@ def Analyze(sensor, datehours, data):
 				datelabels = [str(x[1]).zfill(2)+"-"+str(x[2]).zfill(2) for x in totaldatetuples]
 		else:
 			datelabels = [str(x[0])+"-"+str(x[1]).zfill(2)+"-"+str(x[2]).zfill(2) for x in totaldatetuples]
-			
- 		plt.plot(totaldata)
+	
+ 		totaldataplot, = plt.plot(totaldata['value'])
+ 		#localmaxplot, = plt.plot([ p[0] for p in peaks[0] ], [ p[1] for p in peaks[0] ], 'rx')
+ 		#localminplot, = plt.plot([ p[0] for p in peaks[1] ], [ p[1] for p in peaks[1] ], 'rx')
  		
  		#x axis labels
  		step = int(len(totaldata)/20)
- 		xticks = range(0,len(totaldata))[0::step]
+ 		xticks = range(0,len(totaldata['value']))[0::step]
  		plt.xticks(xticks, [datelabels[i] for i in xticks], rotation=70)
  		plt.xlabel("Date")
  		plt.ylabel(measurand + " ("+unit+")")
