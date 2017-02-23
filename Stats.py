@@ -43,6 +43,7 @@ import FileDialog #to fix pyInstaller problem with matplotlib
 import math
 import signal
 from lib import peakdetect
+import csv
 
 ##############################################################################
 #parse options
@@ -63,6 +64,7 @@ parser.add_option("--monthly", action="store_true", dest="monthlystats",help="Co
 parser.add_option("--daily", action="store_true", dest="dailystats",help="Compute daily data", default=False)
 parser.add_option("--plotavg", action="store_true", dest="plottingavg",help="Create average plot", default=False)
 parser.add_option("--plot", action="store_true", dest="plotting",help="Create continuous plot", default=False)
+parser.add_option("--report", action="store_true", dest="report",help="Create report", default=False)
 (options, args) = parser.parse_args()
 sensors = options.sensors
 modules = options.modules
@@ -80,7 +82,7 @@ plottingavg = options.plottingavg
 plotting = options.plotting
 lastweek = options.lastweek
 lastmonth = options.lastmonth
-
+report = options.report
 	
 ##############################################################################
 #to parse range for the time filter (source: https://gist.github.com/kgaughan/2491663)
@@ -171,6 +173,11 @@ def Analyze(sensor, datehours, data):
 	Tools.PrintWithoutNewline("    Computing...           ")
 	
 	#sensor quality
+	measurand = ((dbcursor.execute("SELECT Measurand From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]
+	unit = ((dbcursor.execute("SELECT Unit From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]
+	calibration = ((dbcursor.execute("SELECT Calibration From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]	
+	description = ((dbcursor.execute("SELECT Description From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]	
+	module = ((dbcursor.execute("SELECT Module From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]	
 	pph = ((dbcursor.execute("SELECT pph FROM Sensors WHERE Id IS "+str(sensor))).fetchone())[0]
 	nonsufficientdatehours = []
 	availablepoints = 0
@@ -308,7 +315,7 @@ def Analyze(sensor, datehours, data):
 	res["dailyminavg"] = dailyminavg
 	res["dailymaxavg"] = dailymaxavg
 
-	if plotting:
+	if plotting or report:
 		totaldatetuples = []
 		for d in datehours:
 			if not d in data.keys():
@@ -326,6 +333,7 @@ def Analyze(sensor, datehours, data):
 		else:
 			datelabels = [str(x[0])+"-"+str(x[1]).zfill(2)+"-"+str(x[2]).zfill(2) for x in totaldatetuples]
 	
+	if plotting:
  		totaldataplot, = plt.plot(totaldata['value'])
  		#localmaxplot, = plt.plot([ p[0] for p in peaks[0] ], [ p[1] for p in peaks[0] ], 'rx')
  		#localminplot, = plt.plot([ p[0] for p in peaks[1] ], [ p[1] for p in peaks[1] ], 'rx')
@@ -335,6 +343,7 @@ def Analyze(sensor, datehours, data):
  		xticks = range(0,len(totaldata['value']))[0::step]
  		plt.xticks(xticks, [datelabels[i] for i in xticks], rotation=70)
  		plt.xlabel("Date")
+ 		
  		plt.ylabel(measurand + " ("+unit+")")
   			
  		print ""
@@ -345,6 +354,87 @@ def Analyze(sensor, datehours, data):
  			
  		plt.show()
 	
+	if report:
+		fieldnames = ['Number', 'Date', measurand]
+		reportcsvfile = open('Reports/'+str(sensor)+'.csv', 'w')
+		writer = csv.DictWriter(reportcsvfile, fieldnames=fieldnames, delimiter=',')
+		writer.writeheader()
+		for i in range(0,len(datelabels)):
+			writer.writerow({'Number':str(i), 'Date':datelabels[i], measurand:totaldata['value'][i] })
+			
+		reportfile = open('Reports/'+str(sensor)+'.tex', 'w')
+		reportfile.write(\
+"""\\documentclass{thielstyle}
+
+\\usepackage{tikz}
+\\usepackage{pgfplots}
+\\pgfplotsset{compat=newest} % Allows to place the legend below plot
+\\usepgfplotslibrary{units,smithchart,polar} % Allows to enter the units nicely
+
+\\usepackage{siunitx}
+\\sisetup{
+  round-mode          = places,
+  round-precision     = 2,
+}
+
+\\title{Statistics for sensor """ + str(sensor) + """}
+\\author{Ulrich Thiel}
+
+\\begin{document}
+
+""")
+
+	reportfile.write(\
+"""	
+\\section{Sensor information}
+Sensor ID: """+str(sensor)+"""\\\\
+Module ID: """+str(module)+"""\\\\
+Measurand: """+str(measurand)+""" ("""+str(unit)+""")\\\
+Calibration: """+str(calibration)+"""\\\\
+Resolution: """+str(pph)+"""\\\\
+
+\\section{Statistics summary}
+Selection: """ + str(len(dates)) + """ days/""" + str(len(datehours)) + """ hours between """ + str(start)[0:10] + """ and """ + str(end)[0:10] + """\\\\
+Quality: """ + str(int(quality))+"""\\% ("""+str(len(datehours)-len(nonsufficientdatehours))+"""/"""+str(len(datehours))+""", """+str(int(availablepoints))+"""/"""+str(int(theorypoints))+""")\\\\
+Maximum: """+str(totalmax) + """\\\\
+Minimum: """+str(totalmin) + """\\\\
+Average: """ + str(round(totalavg,3)) + """ ($\\sigma=""" + str(round(totalsigma,3))+"""$)\\\\
+Daily max: """ + str(round(dailymaxavg,3)) + """ ($\\sigma=""" + str(round(dailymaxsigma,3))+"""$)\\\\
+Daily min: """ + str(round(dailyminavg,3)) + """ ($\\sigma=""" + str(round(dailyminsigma,3))+"""$)\\\\	
+Largest drop: """ + str(largestdrop) + """\\\\
+Largest climb: """ + str(largestclimb) + """\\\\
+""")	
+
+	reportfile.write(\
+"""
+\\section{Plot}
+\\begin{figure}[h!]
+  \\begin{center}
+    \\begin{tikzpicture}[every mark/.append style={mark size=0.5pt}]
+      \\begin{axis}[
+          width=\\linewidth, % Scale the plot to \linewidth
+          grid=major, % Display a grid
+          grid style={dashed,gray!30}, % Set the style
+          xlabel=Date, % Set the labels
+          ylabel="""+measurand+""",
+          %x unit=\\si{\\mega\\hertz}, % Set the respective units
+          %y unit=\\si{\\ohm},
+          %legend style={at={(0.5,-0.2)},anchor=north}, % Put the legend below the plot
+          x tick label style={rotate=90,anchor=east} % Display labels sideways
+        ]
+        \\addplot 
+        % add a plot from table; you select the columns by using the actual name in
+        % the .csv file (on top)
+        table[x=Number,y="""+measurand+""",col sep=comma] {"""+str(sensor)+""".csv}; 
+        %\\legend{Plot}
+      \\end{axis}
+    \\end{tikzpicture}
+  \\end{center}
+\\end{figure}
+""")
+
+
+	reportfile.write("\\end{document}")
 	
 	return res
 	
