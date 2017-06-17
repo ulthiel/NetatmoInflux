@@ -94,6 +94,7 @@ def UpdateNetatmoForAccount(account):
 			sensorids = []
 			#set correct units
 			for measurand in netatm.measurands[id]:
+		
 				if measurand == "CO2":
 					unit = "ppm"
 					
@@ -128,6 +129,9 @@ def UpdateNetatmoForAccount(account):
 						unit = "inHg"
 					elif netatm.pressureunits[id] == 2:
 						unit = "mmHg"
+						
+				if measurand == "Rain":
+					unit = "mm"
 					
 				dbcursor.execute("INSERT INTO Sensors (Measurand,Unit,Description,Calibration,Module,pph) VALUES (\""+measurand + "\",\""+unit+"\",\"Netatmo sensor\",0,"+str(moduleid)+",12)") #12 points per hour is Netatmo resolution
 				sensorid = (dbcursor.execute("SELECT last_insert_rowid();").fetchone())[0]

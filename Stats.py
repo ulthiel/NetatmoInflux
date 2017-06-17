@@ -384,7 +384,7 @@ def Analyze(sensor, datehours, data):
 
 """)
 
-	reportfile.write(\
+		reportfile.write(\
 """	
 \\section{Sensor information}
 Sensor ID: """+str(sensor)+"""\\\\
@@ -405,7 +405,7 @@ Largest drop: """ + str(largestdrop) + """\\\\
 Largest climb: """ + str(largestclimb) + """\\\\
 """)	
 
-	reportfile.write(\
+		reportfile.write(\
 """
 \\section{Plot}
 \\begin{figure}[h!]
@@ -434,7 +434,7 @@ Largest climb: """ + str(largestclimb) + """\\\\
 """)
 
 
-	reportfile.write("\\end{document}")
+		reportfile.write("\\end{document}")
 	
 	return res
 	
