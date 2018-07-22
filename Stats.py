@@ -26,6 +26,8 @@
 ##############################################################################
 # imports
 import sys
+reload(sys)  
+sys.setdefaultencoding('utf8')
 import sqlite3
 import numpy
 import time
@@ -50,6 +52,7 @@ import csv
 parser = OptionParser()
 parser.add_option("--sensors", dest="sensors",help="Sensors (e.g., --sensors=1-2,6-7)")
 parser.add_option("--modules", dest="modules",help="Modules (e.g., --modules=1-2,6-7)")
+parser.add_option("--locations", dest="locations",help="Locations (e.g., --modules=1-2,6-7)")
 parser.add_option("--hours", dest="hours",help="Hours (e.g., --hours=7-9,21)")
 parser.add_option("--days", dest="days",help="Days (e.g., --days=5-8,12)")
 parser.add_option("--months", dest="months",help="Months (e.g., --months=5-8,12)")
@@ -68,6 +71,7 @@ parser.add_option("--report", action="store_true", dest="report",help="Create re
 (options, args) = parser.parse_args()
 sensors = options.sensors
 modules = options.modules
+locations = options.locations
 hours = options.hours
 days = options.days
 months = options.months
@@ -128,8 +132,14 @@ for module in modules:
 	res = dbcursor.fetchone()[0] #this is a comma separated list of sensors
 	res = map(int, res.split(','))
 	for sensor in res:
-		sensors.append(sensor)	
+		sensors.append(sensor)
 		
+##############################################################################
+#locations
+if locations == None:
+	locations = []
+else:
+	locations = parse_range_list(locations)
 	
 ##############################################################################
 #parse time filter options
@@ -208,52 +218,7 @@ def Analyze(sensor, datehours, data):
 		res = dict()
 		return res
 	
-	#total maximum
-	totalmax = totaldata['value'].max()	
-	totalmaxtimestamps = sorted([totaldata['timestamp'][i] for i in (numpy.argwhere(totaldata['value'] == totalmax)).flatten().tolist()])
 	
-	totalmaxdatetimes = []
-	totalmaxdatehours = []
-	for t in totalmaxtimestamps:
-		dbcursor.execute("Select Year,Month,Day,Hour,Minute,Second FROM Data"+str(sensor)+" WHERE Timestamp IS "+str(t))
-		res = dbcursor.fetchone()
-		s = str(res[0])+"-"+str(res[1]).zfill(2)+"-"+str(res[2]).zfill(2)+" "+str(res[3]).zfill(2)+":"+str(res[4]).zfill(2)+":"+str(res[5]).zfill(2)
-		totalmaxdatetimes.append(s)
-		sh = DateHelper.DateHourFromDatetime(s)
-		if not sh in totalmaxdatehours:
-			totalmaxdatehours.append(sh)
-	
-	out = "    Maximum: \t" + str(totalmax) + " ("
-	for i in range(0,len(totalmaxdatehours)):
-		out = out + totalmaxdatehours[i]
-		if i < len(totalmaxdatehours)-1:
-			out = out + ", "
-	out = out + ")"
-	print out
-	
-	#total minimum
-	#total maximum
-	totalmin = totaldata['value'].min()	
-	totalmintimestamps = sorted([totaldata['timestamp'][i] for i in (numpy.argwhere(totaldata['value'] == totalmin)).flatten().tolist()])
-	
-	totalmindatetimes = []
-	totalmindatehours = []
-	for t in totalmintimestamps:
-		dbcursor.execute("Select Year,Month,Day,Hour,Minute,Second FROM Data"+str(sensor)+" WHERE Timestamp IS "+str(t))
-		res = dbcursor.fetchone()
-		s = str(res[0])+"-"+str(res[1]).zfill(2)+"-"+str(res[2]).zfill(2)+" "+str(res[3]).zfill(2)+":"+str(res[4]).zfill(2)+":"+str(res[5]).zfill(2)
-		totalmindatetimes.append(s)
-		sh = DateHelper.DateHourFromDatetime(s)
-		if not sh in totalmindatehours:
-			totalmindatehours.append(sh)
-	
-	out = "    Minimum: \t" + str(totalmin) + " ("
-	for i in range(0,len(totalmindatehours)):
-		out = out + totalmindatehours[i]
-		if i < len(totalmindatehours)-1:
-			out = out + ", "
-	out = out + ")"
-	print out
 		
 	#total average
 	totalavg = totaldata['value'].mean()
@@ -279,6 +244,52 @@ def Analyze(sensor, datehours, data):
 	dailyminavg = dailymin['value'].mean()
 	dailyminsigma = dailymin['value'].std()
 	print "    Daily min:\t" + str(round(dailyminavg,3)) + " (sigma=" + str(round(dailyminsigma,3))+")"	
+	
+	#total maximum
+	totalmax = totaldata['value'].max()	
+	totalmaxtimestamps = sorted([totaldata['timestamp'][i] for i in (numpy.argwhere(totaldata['value'] == totalmax)).flatten().tolist()])
+	
+	totalmaxdatetimes = []
+	totalmaxdatehours = []
+	for t in totalmaxtimestamps:
+		dbcursor.execute("Select Year,Month,Day,Hour,Minute,Second FROM Data"+str(sensor)+" WHERE Timestamp IS "+str(t))
+		res = dbcursor.fetchone()
+		s = str(res[0])+"-"+str(res[1]).zfill(2)+"-"+str(res[2]).zfill(2)+" "+str(res[3]).zfill(2)+":"+str(res[4]).zfill(2)+":"+str(res[5]).zfill(2)
+		totalmaxdatetimes.append(s)
+		sh = DateHelper.DateHourFromDatetime(s)
+		if not sh in totalmaxdatehours:
+			totalmaxdatehours.append(sh)
+	
+	out = "    Maximum: \t" + str(totalmax) + " ("
+	for i in range(0,len(totalmaxdatehours)):
+		out = out + totalmaxdatehours[i]
+		if i < len(totalmaxdatehours)-1:
+			out = out + ", "
+	out = out + ")"
+	print out
+	
+	#total minimum
+	totalmin = totaldata['value'].min()	
+	totalmintimestamps = sorted([totaldata['timestamp'][i] for i in (numpy.argwhere(totaldata['value'] == totalmin)).flatten().tolist()])
+	
+	totalmindatetimes = []
+	totalmindatehours = []
+	for t in totalmintimestamps:
+		dbcursor.execute("Select Year,Month,Day,Hour,Minute,Second FROM Data"+str(sensor)+" WHERE Timestamp IS "+str(t))
+		res = dbcursor.fetchone()
+		s = str(res[0])+"-"+str(res[1]).zfill(2)+"-"+str(res[2]).zfill(2)+" "+str(res[3]).zfill(2)+":"+str(res[4]).zfill(2)+":"+str(res[5]).zfill(2)
+		totalmindatetimes.append(s)
+		sh = DateHelper.DateHourFromDatetime(s)
+		if not sh in totalmindatehours:
+			totalmindatehours.append(sh)
+	
+	out = "    Minimum: \t" + str(totalmin) + " ("
+	for i in range(0,len(totalmindatehours)):
+		out = out + totalmindatehours[i]
+		if i < len(totalmindatehours)-1:
+			out = out + ", "
+	out = out + ")"
+	print out
 	
 	#Extrema
 	peaks = peakdetect.peakdetect(totaldata['value'], lookahead=pph)
@@ -402,7 +413,7 @@ Average: """ + str(round(totalavg,3)) + """ ($\\sigma=""" + str(round(totalsigma
 Daily max: """ + str(round(dailymaxavg,3)) + """ ($\\sigma=""" + str(round(dailymaxsigma,3))+"""$)\\\\
 Daily min: """ + str(round(dailyminavg,3)) + """ ($\\sigma=""" + str(round(dailyminsigma,3))+"""$)\\\\	
 Largest drop: """ + str(largestdrop) + """\\\\
-Largest climb: """ + str(largestclimb) + """\\\\
+Largest climb: """ + str(largestclimb).encode('utf-8', 'ignore').decode('utf-8') + """\\\\
 """)	
 
 		reportfile.write(\
@@ -440,7 +451,7 @@ Largest climb: """ + str(largestclimb) + """\\\\
 	
 ##############################################################################
 #Reads data
-def ReadData(sensor,years, months, days, hours, userstart, userend):
+def ReadData(sensor,years,months, days, hours, userstart,userend):
 	
 	#we first create an array of datehours reflecting the user selection. this is actually a bit tricky somehow.
 	
@@ -780,7 +791,11 @@ def ReadData(sensor,years, months, days, hours, userstart, userend):
 	progresscounter = 0
 	numberofdatapoints = 0
 	for datemonth in datemonths:
-		dbcursor.execute("SELECT Timestamp,ValueCalibrated,Year,Month,Day,Hour,Minute,Second FROM Data"+str(sensor)+"Full WHERE Year IS "+str(datemonth[0])+" AND Month IS "+str(datemonth[1])+" ORDER BY Timestamp ASC")
+		sql = "SELECT Timestamp,ValueCalibrated,Year,Month,Day,Hour,Minute,Second FROM Data"+str(sensor)+"Full WHERE Year IS "+str(datemonth[0])+" AND Month IS "+str(datemonth[1])
+		if locations != []:
+			sql = sql + " AND Location IN " + str(locations).replace('[', '(').replace(']', ')')
+		sql = sql +" ORDER BY Timestamp ASC"
+		dbcursor.execute(sql)
 		res = dbcursor.fetchall()
 		datehoursfordatemonth = [ d for d in datehours if d[0] == datemonth[0] and d[1] == datemonth[1] ]
 		if len(res) == 0:
@@ -840,7 +855,7 @@ for sensor in sensors:
 		print ""
 		continue
 	
-	res = ReadData(sensor,years, months, days, hours, start, end)
+	res = ReadData(sensor, years, months, days, hours, start, end)
 	if len(res) == 0:
 		ColorPrint.ColorPrint("  No data in selection.", "error")
 		continue
