@@ -36,7 +36,7 @@ if sys.version_info.major == 3 :
 else:
     from urllib import urlencode
     import urllib2
-    
+
 
 import pprint
 import ColorPrint
@@ -55,16 +55,16 @@ def postRequest(url, params):
         req = urllib2.Request(url=url, data=params, headers=headers)
         try:
         	resp = urllib2.urlopen(req).read()
-        except urllib2.HTTPError, e: 
+        except urllib2.HTTPError, e:
 			ColorPrint.ColorPrint(str(e), "error")
 			sys.exit(1)
     return json.loads(resp)
-    
+
 
 ##############################################################################
 #Netatmo class
 class NetatmoClient:
-	
+
 	#Netatmo URLs
 	BASE_URL       = "https://api.netatmo.net/"
 	AUTH_REQ       = BASE_URL + "oauth2/token"
@@ -72,14 +72,14 @@ class NetatmoClient:
 	DEVICELIST_REQ = BASE_URL + "api/devicelist"	#deprecated
 	GETSTATION_REQ = BASE_URL + "api/getstationsdata"
 	GETMEASURE_REQ = BASE_URL + "api/getmeasure"
-	
+
 	def __init__(self, username, password, clientId, clientSecret):
-		
+
 		self.username = username
 		self.password = password
 		self.clientId = clientId
 		self.clientSecret = clientSecret
-		
+
 		postParams = {
                 "grant_type" : "password",
                 "client_id" : clientId,
@@ -88,14 +88,14 @@ class NetatmoClient:
                 "password" : password,
                 "scope" : "read_station"
                 }
-		                 
+
 		resp = postRequest(self.AUTH_REQ, postParams)
-		
+
 		self.accessToken = resp['access_token']
 		self.refreshToken = resp['refresh_token']
 		self.scope = resp['scope']
 		self.expiration = int(resp['expire_in'] + time.time())
-		
+
 	#function for refreshing access token if necessary
 	def refreshAccessToken(self):
 
@@ -112,15 +112,15 @@ class NetatmoClient:
 			self.accessToken = resp['access_token']
 			self.refreshToken = resp['refresh_token']
 			self.expiration = int(resp['expire_in'] + time.time())
-			
+
 			self.getStationData()
-			
+
 	def getStationData(self):
 		self.refreshAccessToken()	#will only do if necessary
 		postParams = {"access_token" : self.accessToken}
 		resp = postRequest(self.GETSTATION_REQ, postParams)
 		raw = resp['body']
-		
+
 		#collect information about all devices and all modules
 		devicemoduleids = []
 		measurands = dict()
@@ -130,12 +130,12 @@ class NetatmoClient:
 		windunit = raw['user']['administrative']['windunit']
 		windunits = dict()
 		pressureunit = raw['user']['administrative']['pressureunit']
-		pressureunits = dict()		
+		pressureunits = dict()
 		for device in raw['devices']:
 			location = device['place']['location']
 			alt = device['place']['altitude']
 			timezone = device['place']['timezone']
-			
+
 			#sensors of base station
 			deviceid = device['_id']
 			id = (deviceid,None)
@@ -146,7 +146,7 @@ class NetatmoClient:
 			units[id] = unit
 			windunits[id] = windunit
 			pressureunits[id] = pressureunit
-			
+
 			#sensors of modules
 			for module in device['modules']:
 				moduleid = module['_id']
@@ -158,14 +158,14 @@ class NetatmoClient:
 				units[id] = unit
 				windunits[id] = windunit
 				pressureunits[id] = pressureunits
-				
+
 		self.devicemoduleids = devicemoduleids
 		self.measurands = measurands
 		self.locations = locations
 		self.units = units
 		self.windunits = windunits
 		self.pressureunits = pressureunits
-		
+
 	def getMeasure(self,device_id,module_id,scale,type,date_begin,date_end,limit,optimize):
 		self.refreshAccessToken()	#will only do if necessary
 		postParams = {"access_token" : self.accessToken, "device_id" : device_id, "scale":scale, "type":type}

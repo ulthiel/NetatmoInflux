@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 ##############################################################################
 # WeatherStats
-# A collection of Python scripts for general sensor data management and analysis with Netatmo support.	
+# A collection of Python scripts for general sensor data management and analysis with Netatmo support.
 # (C) 2015-2017, Ulrich Thiel
 # thiel@mathematik.uni-stuttgart.de
 ##############################################################################
@@ -26,7 +26,7 @@ import sqlite3
 
 ##############################################################################
 #connect to db
-dbconn = sqlite3.connect('Weather.db')
+dbconn = sqlite3.connect('Netatmo.db')
 dbcursor = dbconn.cursor()
 
 ##############################################################################
@@ -36,7 +36,7 @@ res = dbcursor.fetchall()
 sensors = []
 for sensor in res:
 	sensors.append(int(sensor[0]))
-	
+
 dbcursor.execute("SELECT Id, Description From Locations")
 res = dbcursor.fetchall()
 locations = dict()
@@ -48,21 +48,21 @@ res = dbcursor.fetchall()
 modules = []
 for module in res:
 	modules.append(int(module[0]))
-	
+
 modulelocations = dict()
 for module in modules:
 	dbcursor.execute("SELECT LocationId From ModuleLocations WHERE ModuleID IS "+str(module))
 	res = dbcursor.fetchall()
 	modulelocations[module] = []
 	for loc in res:
-		modulelocations[module].append(locations[loc[0]])	
-		
+		modulelocations[module].append(locations[loc[0]])
+
 for sensor in sensors:
 	measurand = ((dbcursor.execute("SELECT Measurand From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]
 	unit = ((dbcursor.execute("SELECT Unit From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]
-	calibration = ((dbcursor.execute("SELECT Calibration From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]	
-	description = ((dbcursor.execute("SELECT Description From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]	
-	module = ((dbcursor.execute("SELECT Module From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]	
+	calibration = ((dbcursor.execute("SELECT Calibration From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]
+	description = ((dbcursor.execute("SELECT Description From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]
+	module = ((dbcursor.execute("SELECT Module From Sensors WHERE ID IS " + str(sensor))).fetchone())[0]
 	pph = ((dbcursor.execute("SELECT pph FROM Sensors WHERE Id IS "+str(sensor))).fetchone())[0]
 	locstr = "  Location:\t"
 	for i in range(0,len(modulelocations[module])):

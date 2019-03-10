@@ -44,23 +44,23 @@ password = getpass.getpass()
 ColorPrint.ColorPrint("Do you want to save the password as clear text to the database?\nIf not, you have to enter it on any update.", "warning")
 savepassw = raw_input("Save? (y/n) ")
 if not (savepassw == "Y" or savepassw == "y"):
-	password = ""
+  password = ""
 ColorPrint.ColorPrint("You have to grant client access for WeatherStats. If not done yet,\nlog into\n\thttps://dev.netatmo.com/dev/myaccount\nand add an app called \"WeatherStats\". You will be given a client \nid and a client secret.", "warning")
 clientId = raw_input("Client id: ")
 clientSecret = raw_input("Client secret: ")
-	
-dbconn = sqlite3.connect('Weather.db')
+
+dbconn = sqlite3.connect('Netatmo.db')
 dbcursor = dbconn.cursor()
-	
+
 dbcursor.execute(\
-	"INSERT INTO NetatmoAccounts (User, Password, ClientID, ClientSecret)\n"\
-	"VALUES (\"" + username + "\",\"" + password + "\",\"" + clientId + "\",\"" + clientSecret + "\")"
+  "INSERT INTO Accounts (User, Password, ClientID, ClientSecret)\n"\
+  "VALUES (\"" + username + "\",\"" + password + "\",\"" + clientId + "\",\"" + clientSecret + "\")"
 )
-	
+
 #check if it works
 netatm = Netatmo.NetatmoClient(username, password, clientId, clientSecret)
 netatm.getStationData()
-	
+
 ColorPrint.ColorPrint("Account added", "okgreen")
 
 dbconn.commit()

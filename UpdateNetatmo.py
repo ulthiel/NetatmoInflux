@@ -46,10 +46,10 @@ import signal
 
 ##############################################################################
 #database connection
-dbconn = sqlite3.connect('Weather.db')
+dbconn = sqlite3.connect('Netatmo.db')
 dbcursor = dbconn.cursor()
-		
-	
+
+
 ##############################################################################
 #function to update all devices/modules for specific account (this is the main function)
 def UpdateNetatmoForAccount(account):
@@ -60,62 +60,62 @@ def UpdateNetatmoForAccount(account):
 	clientSecret = account[3]
 
 	print "Updating account " + username
-			
+
 	if password == "":
 		password = getpass.getpass()
-	
+
 	netatm = Netatmo.NetatmoClient(username, password, clientId, clientSecret)
 	netatm.getStationData()
-	
+
 	#first, update modules and sensors
 	for id in netatm.devicemoduleids:
-			
+
 		if id[1] == None:
 			moduleid = dbcursor.execute("SELECT Id FROM NetatmoModules WHERE Id IS \""+str(id[0])+"\"").fetchone()
 
 		else:
 			moduleid = dbcursor.execute("SELECT Id FROM NetatmoModules WHERE Id IS \""+str(id[1])+"\"").fetchone()
-		
+
 		#if not exists, add new device/module and its sensors
 		if moduleid == None:
-		
+
 			#check if location exists
 			location = netatm.locations[id]
 			locationid = dbcursor.execute("SELECT ID FROM Locations WHERE PositionNorth IS "+str(location[0][1])+" AND PositionEast IS "+str(location[0][0])+" AND Elevation IS "+str(location[1])+" AND Name IS \""+location[3]+"\" AND Timezone IS \""+location[2]+"\"").fetchone()
-		
+
 			if locationid == None:
 				dbcursor.execute("INSERT INTO Locations (PositionNorth,PositionEast,Elevation,Name,Timezone) VALUES ("+str(location[0][1]) + "," + str(location[0][0]) + "," + str(location[1]) + ",\"" + location[3] + "\",\"" + location[2] + "\")")
-			
+
 				locationid = (dbcursor.execute("SELECT last_insert_rowid();").fetchone())[0]
 			else:
 				locationid = locationid[0]
-			
+
 			if id[1] == None:
 				moduleid = id[0]
 			else:
-				moduleid = id[1]	
-			
+				moduleid = id[1]
+
 			dbcursor.execute("INSERT INTO NetatmoModules (Id,Name) VALUES (\""+str(moduleid)+"\",\"Netatmo Module\")")
-				
+
 			sensorids = []
 			#set correct units
 			for measurand in netatm.measurands[id]:
-		
+
 				if measurand == "CO2":
 					unit = "ppm"
-					
+
 				if measurand == "Humidity":
 					unit = "%"
-					
+
 				if measurand == "Noise":
-					unit = "dB"	
-									
+					unit = "dB"
+
 				if measurand == "Temperature":
 					if netatm.units[id] == 0:
 						unit = u"\u00b0"+"C"
 					else:
 						unit = u"\u00b0"+"F"
-						
+
 				if measurand == "Wind":
 					if netatm.windunits[id] == 0:
 						unit = "kph"
@@ -127,7 +127,7 @@ def UpdateNetatmoForAccount(account):
 						unit = "Bft"
 					elif netatm.windunits[id] == 4:
 						unit = "kn"
-						
+
 				if measurand == "Pressure":
 					if netatm.pressureunits[id] == 0:
 						unit = "mbar"
@@ -135,23 +135,23 @@ def UpdateNetatmoForAccount(account):
 						unit = "inHg"
 					elif netatm.pressureunits[id] == 2:
 						unit = "mmHg"
-						
+
 				if measurand == "Rain":
 					measurand = "Precipitation"
 					unit = "mm"
-					
+
 				measurandid = dbcursor.execute("SELECT ID FROM Measurands WHERE Name IS \""+measurand+"\" AND Unit IS \""+unit+"\"").fetchone()
-				
+
 				if measurandid == None:
 					dbcursor.execute("INSERT INTO Measurands (Name,Unit) VALUES (\""+measurand + "\",\""+unit+"\")")
 					measurandid = (dbcursor.execute("SELECT last_insert_rowid();").fetchone())[0]
-								
+
 				dbcursor.execute("INSERT INTO Sensors (Measurand,Name,Calibration,Interval) VALUES (\""+str(measurandid) + "\",\"Netatmo "+measurand+" sensor\",0,300)") #one point every 5 minutes for Netatmo
 				sensorid = (dbcursor.execute("SELECT last_insert_rowid();").fetchone())[0]
 				sensorids.append(sensorid)
-				
-				dbcursor.execute("INSERT INTO NetatmoSensors (Id,Module) VALUES (\""+str(sensorid) + "\",\""+str(moduleid)+"\")") 
-											
+
+				dbcursor.execute("INSERT INTO NetatmoSensors (Id,Module) VALUES (\""+str(sensorid) + "\",\""+str(moduleid)+"\")")
+
 			#get first time stamp for module and set this as Begin for location of module
 			measurandsstring = ""
 			measurands = netatm.measurands[id]
@@ -161,33 +161,33 @@ def UpdateNetatmoForAccount(account):
 					measurandsstring = measurandsstring + ","
 			data = netatm.getMeasure(id[0],id[1],"max",measurandsstring,None,None,None,"false")
 			minservertimestamp = min(map(int,data.keys()))
-			
+
 			dbcursor.execute("INSERT INTO SensorLocations (Sensor,Begin,Location) VALUES ("+str(sensorid)+","+str(minservertimestamp)+","+str(locationid)+")")
-			
+
 			dbconn.commit()
 			dbconn.close()
 			sys.exit(0)
-					
+
 			if id[1] == None:
 				dbcursor.execute("INSERT INTO NetatmoModules (NetatmoDeviceId,ModuleId) VALUES (\""+id[0]+"\","+str(moduleid)+")")
-				
+
 				ColorPrint.ColorPrint("Added device "+id[0]+" as module "+str(moduleid)+" at location "+str(locationid), "okgreen")
-				
+
 			else:
-				
+
 				dbcursor.execute("INSERT INTO NetatmoModules (NetatmoDeviceId,NetatmoModuleId,ModuleId) VALUES (\""+id[0]+"\",\""+id[1]+"\","+str(moduleid)+")")
-				
+
 				ColorPrint.ColorPrint("Added module "+id[1]+" of device "+id[0]+" as module "+str(moduleid)+" at location "+str(locationid), "okgreen")
-			
-			#add data tables for all sensors	
+
+			#add data tables for all sensors
 			for sensor in sensorids:
 				AddNewDataTable(dbcursor, sensor)
-						
+
 		else:
 			moduleid = moduleid[0]
-	
+
 		dbconn.commit()
-				
+
 		#now, update data
 		currenttime = DateHelper.CurrentTimestamp()
 		res = dbcursor.execute("SELECT Id FROM Sensors WHERE Module IS "+str(moduleid)).fetchall()
@@ -200,26 +200,26 @@ def UpdateNetatmoForAccount(account):
 			measurandsstring = measurandsstring + measurands[i]
 			if i < len(measurands)-1:
 				measurandsstring = measurandsstring + ","
-				
+
 		if id[1] == None:
 			print "  Updating data for device "+id[0]
 		else:
 			print "  Updating data for module "+id[1]+" of device "+id[0]
-			
+
 		#find last timestamp among all sensors (this is the minimal point up to which we have to update data)
 		maxdbtimestamp = None
 		for sensorid in sensorids:
 			mt = dbcursor.execute("SELECT MAX(Timestamp) FROM Data"+str(sensorid)).fetchone()[0]
 			if mt != None and (maxdbtimestamp == None or mt < maxdbtimestamp): #< is correct here
 				maxdbtimestamp = mt
-				
+
 		if maxdbtimestamp == None:
 			#get minimal timestamp for device/module from server
 			data = netatm.getMeasure(id[0],id[1],"max",measurandsstring,None,None,None,"false")
 			maxdbtimestamp = min(map(int,data.keys()))
-			
+
 		Tools.PrintWithoutNewline("    Retrieving data from "+DateHelper.DateFromDatetime(DateHelper.DatetimeFromTimestamp(maxdbtimestamp,None))+" to now: 0%  ")
-			
+
 		date_begin = maxdbtimestamp
 		date_end = maxdbtimestamp + 1 #will be modified soon
 		timestampcounter = 0 #will count number of retrieved timestamps
@@ -233,12 +233,12 @@ def UpdateNetatmoForAccount(account):
 			except:
 				print "Setting dates"
 				SetDates(dbconn, dbcursor)
-			
+
 			timestampcounter = timestampcounter + len(data)
 			date_begin = date_end+1
-			
+
 			Tools.PrintWithoutNewline("    Retrieving data from "+DateHelper.DateFromDatetime(DateHelper.DatetimeFromTimestamp(maxdbtimestamp,None))+" to now: "+str(int((float(date_end)-float(maxdbtimestamp))/float(maxval)*100.0))+'%  ')
-			
+
 			if len(data) != 0: #might be empty in case there is no data in this time window. we shouldn't break here though since there might still be earlier data
 				for timestamp in data.keys():
 					for i in range(0,len(sensorids)):
@@ -246,7 +246,7 @@ def UpdateNetatmoForAccount(account):
 						if data[timestamp][i] != None:
 							dbcursor.execute("INSERT INTO Data"+str(sensorid)+" (Timestamp,Value) VALUES ("+str(timestamp)+","+str(data[timestamp][i])+")")
 							datapointcounter = datapointcounter + 1
-			
+
 					dbconn.commit()
 
 		Tools.PrintWithoutNewline("    Retrieving data from "+DateHelper.DateFromDatetime(DateHelper.DatetimeFromTimestamp(maxdbtimestamp,None))+" to now: 100%  ")
@@ -256,7 +256,7 @@ def UpdateNetatmoForAccount(account):
 ##############################################################################
 #This iterates through all accounts
 def UpdateNetatmo():
-	
+
 	dbcursor.execute("SELECT * From NetatmoAccounts")
 	res = dbcursor.fetchall()
 	for account in res:
@@ -273,7 +273,7 @@ def signal_handler(signal, frame):
 signal.signal(signal.SIGINT, signal_handler)
 
 ##############################################################################
-#Main	
+#Main
 UpdateNetatmo()
 SetDates(dbconn, dbcursor)
 dbconn.commit()
