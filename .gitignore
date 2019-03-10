@@ -1,0 +1,6 @@
+*.pyc
+*.spec
+*.db
+build/
+dist/
+.DS_Store

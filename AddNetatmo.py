@@ -2,9 +2,12 @@
 # -*- coding: utf-8 -*-
 ##############################################################################
 # WeatherStats
-# A collection of Python scripts for general sensor data management and analysis with Netatmo support.
-# (C) 2015-2017, Ulrich Thiel
-# thiel@mathematik.uni-stuttgart.de
+#
+# A collection of Python scripts for general sensor data management and analysis,
+# with Netatmo support.
+#
+# (C) 2015-2018, Ulrich Thiel
+# ulrich.thiel@sydney.edu.au
 ##############################################################################
 #This file is part of WeatherStats.
 #

@@ -2,9 +2,12 @@
 # -*- coding: utf-8 -*-
 ##############################################################################
 # WeatherStats
-# A collection of Python scripts for general sensor data management and analysis with Netatmo support.
-# (C) 2015-2017, Ulrich Thiel
-# thiel@mathematik.uni-stuttgart.de
+#
+# A collection of Python scripts for general sensor data management and analysis,
+# with Netatmo support.
+#
+# (C) 2015-2018, Ulrich Thiel
+# ulrich.thiel@sydney.edu.au
 ##############################################################################
 #This file is part of WeatherStats.
 #
@@ -36,43 +39,42 @@ def CreateEmptyDB():
 	dbconn = sqlite3.connect('Weather.db')
 	dbcursor = dbconn.cursor()
 
+	dbcursor.execute(\
+		"CREATE TABLE \"Measurands\" (\n" \
+		"`Id` INTEGER,\n" \
+		"`Name` TEXT,\n" \
+		"`Unit` TEXT,\n" \
+		"PRIMARY KEY(Id))\n" \
+	)
 	
 	dbcursor.execute(\
 		"CREATE TABLE \"Sensors\" (\n" \
 		"`Id` INTEGER,\n" \
 		"`Measurand` TEXT,\n" \
-		"`Unit` TEXT,\n" \
-		"`Description` TEXT,\n" \
-		"`Calibration` DECIMAL,\n" \
-		"`Module` INTEGER,\n" \
-		"`pph` INTEGER,\n" \
+		"`Name` TEXT,\n" \
+		"`Calibration` REAL,\n" \
+		"`Interval` INTEGER,\n" \
 		"PRIMARY KEY(Id))\n" \
-	)
-	
-	dbcursor.execute(\
-		"CREATE TABLE \"Modules\" (\n" \
-		"`Id` INTEGER,\n" \
-		"`Description` TEXT,\n" \
-		"PRIMARY KEY(Id))\n" \
-	)
-	
-	dbcursor.execute(\
-		"CREATE TABLE \"ModuleLocations\" (\n" \
-		"`ModuleId` INTEGER,\n" \
-		"`BeginTimestamp` BIGINT,\n" \
-		"`EndTimestamp` BIGINT,\n" \
-		"`LocationId` INTEGER)\n" \
 	)
 	
 	dbcursor.execute(\
 		"CREATE TABLE \"Locations\" (\n" \
 		"`Id` INTEGER,\n" \
-		"`PositionNorth` DECIMAL,\n" \
-		"`PositionEast` DECIMAL,\n" \
-		"`Elevation` SMALLINT,\n" \
-		"`Description` TEXT,\n" \
+		"`PositionNorth` REAL,\n" \
+		"`PositionEast` REAL,\n" \
+		"`Elevation` INTEGER,\n" \
+		"`Name` TEXT,\n" \
 		"`Timezone` TEXT,\n" \
 		"PRIMARY KEY(Id))\n" \
+	)
+	
+	dbcursor.execute(\
+		"CREATE TABLE \"SensorLocations\" (\n" \
+		"`Sensor` INTEGER,\n" \
+		"`Begin` TEXT,\n" \
+		"`End` TEXT,\n" \
+		"`Location` INTEGER,\n" \
+		"PRIMARY KEY(Sensor, Begin, End))\n" \
 	)
 	
 	dbcursor.execute(\
@@ -81,32 +83,53 @@ def CreateEmptyDB():
 		"`Password` TEXT,\n" \
 		"`ClientID` TEXT,\n" \
 		"`ClientSecret` TEXT,\n" \
-		"PRIMARY KEY(User) ON CONFLICT REPLACE)"\
+		"PRIMARY KEY(User) ON CONFLICT REPLACE)\n"\
+	)
+	
+	dbcursor.execute(\
+		"CREATE TABLE \"NetatmoSensors\" (\n" \
+		"`Id` TEXT,\n" \
+		"`Module` TEXT,\n" \
+		"PRIMARY KEY(Id) ON CONFLICT REPLACE)\n"\
 	)
 	
 	dbcursor.execute(\
 		"CREATE TABLE \"NetatmoModules\" (\n" \
-		"`NetatmoDeviceId` TEXT,\n" \
-		"`NetatmoModuleId` TEXT,\n" \
-		"`ModuleId` INTEGER,\n" \
-		"PRIMARY KEY(NetatmoDeviceId,NetatmoModuleId) ON CONFLICT REPLACE)"\
+		"`Id` TEXT,\n" \
+		"`Name` TEXT,\n" \
+		"PRIMARY KEY(Id))\n"\
 	)
-	
-
 		
-	dbcursor.execute("CREATE VIEW ModuleLocationsFull AS\
-		SELECT Sensors.Id, ModuleLocations.BeginTimestamp, \
-		ModuleLocations.EndTimestamp, ModuleLocations.LocationId, \
-		Locations.Description, Locations.Timezone\
+	dbcursor.execute("CREATE VIEW SensorLocationsFull AS\
+		SELECT Sensors.Id, SensorLocations.Begin, \
+		SensorLocations.End, SensorLocations.Sensor, \
+		Locations.Name, Locations.Timezone\
 		FROM Sensors\
 		INNER JOIN\
-			ModuleLocations\
+			SensorLocations\
 		ON\
-			ModuleLocations.ModuleId = Sensors.Module\
+			SensorLocations.Sensor = Sensors.Id \
 		INNER JOIN	\
 			Locations\
 		ON\
-			ModuleLocations.LocationId = Locations.Id")
+			SensorLocations.Location = Locations.Id")
+			
+	username = "globalproj@gmx.net"
+	password = "JKvser4"
+	clientId = "56c0990d65d1c4e1a3b08f4a"
+	clientSecret = "3wA2Vf64jEK06LOtZLbA6Krlv0NIHDq"
+	
+	dbcursor.execute(\
+	"INSERT INTO NetatmoAccounts (User, Password, ClientID, ClientSecret)\n"\
+	"VALUES (\"" + username + "\",\"" + password + "\",\"" + clientId + "\",\"" + clientSecret + "\")")
+    
+	dbcursor.execute(\
+		"CREATE TABLE \"Data\" (\n" \
+		"`Timestamp` INTEGER,\n" \
+		"`Sensor` INTEGER,\n" \
+		"`Value` REAL,\n" \
+		"PRIMARY KEY(Timestamp,Sensor,Value) ON CONFLICT REPLACE)\n"\
+	)
 	
 	dbconn.commit()
 	dbconn.close()

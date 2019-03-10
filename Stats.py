@@ -325,6 +325,7 @@ def Analyze(sensor, datehours, data):
 	res["totalmin"] = totalmin
 	res["dailyminavg"] = dailyminavg
 	res["dailymaxavg"] = dailymaxavg
+	res["quality"] = quality
 
 	if plotting or report:
 		totaldatetuples = []
@@ -914,6 +915,7 @@ for sensor in sensors:
  			plt.show()
  			
  	if monthlystats:
+ 		yearstmp = sorted(list(set([d[0] for d in datehours])), key=int)
  		monthstmp = sorted(list(set([d[1] for d in datehours])), key=int)
  		totalavg = []
 		totalsigma = []
