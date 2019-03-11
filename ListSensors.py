@@ -37,13 +37,13 @@ sensors = []
 for sensor in res:
 	sensors.append(int(sensor[0]))
 
-dbcursor.execute("SELECT Id, Description From Locations")
+dbcursor.execute("SELECT Id, Name From Locations")
 res = dbcursor.fetchall()
 locations = dict()
 for location in res:
 	locations[int(location[0])] = location[1]
 
-dbcursor.execute("SELECT Id, Description From Locations")
+dbcursor.execute("SELECT Id, Name From Locations")
 res = dbcursor.fetchall()
 modules = []
 for module in res:

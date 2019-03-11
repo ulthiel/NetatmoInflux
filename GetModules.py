@@ -95,7 +95,7 @@ def UpdateNetatmoForAccount(account):
       else:
         moduleid = id[1]
 
-      dbcursor.execute("INSERT INTO Modules (Id,Name) VALUES (\""+moduleid+"\",\"Netatmo Module\")")
+      dbcursor.execute("INSERT INTO Modules (Id,Name) VALUES (\""+moduleid+"\",\""+netatm.types[id]+"\")")
 
       sensorids = []
       #set correct units
@@ -140,7 +140,7 @@ def UpdateNetatmoForAccount(account):
           measurand = "Precipitation"
           unit = "mm"
 
-        dbcursor.execute("INSERT INTO Sensors (Module,Measurand,Unit,Name,Calibration,Interval) VALUES (\""+str(moduleid)+"\",\""+measurand+"\",\""+unit+"\",\"Netatmo "+measurand+" sensor\",0,300)") #one point every 5 minutes for Netatmo
+        dbcursor.execute("INSERT INTO Sensors (Module,Measurand,Unit,Name,Calibration,Interval) VALUES (\""+str(moduleid)+"\",\""+measurand+"\",\""+unit+"\",\""+measurand+" sensor\",0,300)") #one point every 5 minutes for Netatmo
         sensorid = (dbcursor.execute("SELECT last_insert_rowid();").fetchone())[0]
         sensorids.append(sensorid)
 
@@ -157,10 +157,10 @@ def UpdateNetatmoForAccount(account):
       dbcursor.execute("INSERT INTO ModuleLocations (Module,Begin,Location) VALUES (\""+moduleid+"\","+str(minservertimestamp)+","+str(locationid)+")")
 
       if id[1] == None:
-        ColorPrint.ColorPrint("Added device "+id[0]+" at location "+str(locationid), "okgreen")
+        ColorPrint.ColorPrint("Added device "+id[0]+" ("+netatm.types[id]+") at location "+str(locationid)+" ("+netatm.locations[id][3]+")", "okgreen")
 
       else:
-        ColorPrint.ColorPrint("Added module "+id[1]+" at location "+str(locationid), "okgreen")
+        ColorPrint.ColorPrint("Added module "+id[1]+" ("+netatm.types[id]+") at location "+str(locationid)+" ("+netatm.locations[id][3]+")", "okgreen")
 
     else:
       moduleid = moduleid[0]

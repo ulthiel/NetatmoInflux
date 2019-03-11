@@ -87,6 +87,21 @@ def CreateEmptyDB():
     "PRIMARY KEY(Module, Begin, End))\n" \
   )
 
+  dbcursor.execute(\
+    "CREATE VIEW \"ModulesView\" AS \n" \
+    "SELECT Modules.Id AS \"Module Id\", \n" \
+    "Modules.Name AS \"Module Name\", \n" \
+    "STRFTIME(\"%Y-%m-%d %H:%M:%SZ\", DATETIME(ModuleLocations.Begin, \'unixepoch\')) AS \"Begin\" , \n" \
+    "STRFTIME(\"%Y-%m-%d %H:%M:%SZ\", DATETIME(ModuleLocations.End, \'unixepoch\')) AS \"End\", \n" \
+    "Locations.Name AS \"Location Name\", \n"\
+    "ModuleLocations.Begin AS \"BeginTimestamp\", \n" \
+    "ModuleLocations.End AS \"EndTimestamp\", \n" \
+    "Locations.Timezone AS \"Timezone\" \n" \
+    "FROM Modules \n" \
+    "INNER JOIN ModuleLocations ON ModuleLocations.Module = Modules.Id \n" \
+    "INNER JOIN Locations ON ModuleLocations.Location = Locations.Id \n" \
+  )
+
   dbconn.commit()
   dbconn.close()
 
