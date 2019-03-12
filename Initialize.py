@@ -95,7 +95,7 @@ def UpdateNetatmoForAccount(account):
       else:
         moduleid = id[1]
 
-      dbcursor.execute("INSERT INTO Modules (Id,Name) VALUES (\""+moduleid+"\",\""+netatm.types[id]+"\")")
+      dbcursor.execute("INSERT INTO Modules (Id,Name) VALUES (\""+moduleid+"\",\"Netatmo "+netatm.types[id]+"\")")
 
       sensorids = []
       #set correct units

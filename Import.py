@@ -38,16 +38,66 @@ from lib import Netatmo
 import getpass
 from lib import DateHelper
 from lib import Tools
-from SetDatesInDB import SetDates
-from AddSensor import AddNewDataTable
 import sys
 import signal
-
+from influxdb import InfluxDBClient
 
 ##############################################################################
 #database connection
 dbconn = sqlite3.connect('Netatmo.db')
 dbcursor = dbconn.cursor()
+
+##############################################################################
+#InfluxDB connection
+host = dbcursor.execute("SELECT Host FROM InfluxDB WHERE Id=1").fetchone()[0]
+port = dbcursor.execute("SELECT Port FROM InfluxDB WHERE Id=1").fetchone()[0]
+user = dbcursor.execute("SELECT User FROM InfluxDB WHERE Id=1").fetchone()[0]
+password = dbcursor.execute("SELECT Password FROM InfluxDB WHERE Id=1").fetchone()[0]
+db = dbcursor.execute("SELECT Database FROM InfluxDB WHERE Id=1").fetchone()[0]
+ssl = dbcursor.execute("SELECT SSL FROM InfluxDB WHERE Id=1").fetchone()[0]
+if ssl == None or ssl == 0:
+  ssl = False
+elif ssl == 1:
+  ssl = True
+if ssl:
+  influxClient = InfluxDBClient(host, port, user, password, db, ssl=True, verify_ssl=True)
+else:
+  influxClient = InfluxDBClient(host, port, user, password, db)
+
+##############################################################################
+#get locations
+res = dbcursor.execute("SELECT \"Module Id\", \"Begin Timestamp\", \"End Timestamp\", \"Location Name\" FROM ModulesView").fetchall()
+locations = dict()
+for r in res:
+  if not r[0] in locations.keys():
+    locations[r[0]] = []
+  entry = dict()
+
+  if r[1] != None:
+    entry["Begin"] = int(r[1])
+  else:
+    entry["Begin"] = None
+
+  if r[2] != None:
+    entry["End"] = int(r[2])
+  else:
+    entry["End"] = None
+
+  entry["Location"] = r[3]
+  locations[r[0]].append(entry)
+
+def GetModuleLocation(moduleid, timestamp):
+  moduleLocations = locations[moduleid]
+  for loc in moduleLocations:
+    if loc["Begin"] == None and loc["End"] == None:
+      return loc["Location"]
+    elif loc["Begin"] == None and timestamp <= loc["End"]:
+      return loc["Location"]
+    elif loc["Begin"] <= timestamp and loc["End"] == None:
+      return loc["Location"]
+    elif loc["Begin"] <= timestamp and timestamp <= loc["End"]:
+      return loc["Location"]
+
 
 ##############################################################################
 #function to import all data for specific account (this is the main function)
@@ -83,26 +133,34 @@ def ImportDataForAccount(account):
       continue
 
     #now, import data
-    print "  Importing data for module "+moduleid
+    modulename = dbcursor.execute("SELECT Name FROM Modules WHERE Id IS \""+moduleid+"\"").fetchone()[0]
+    modulename = modulename + " " + moduleid
+
+    print "  Importing data for " + modulename
 
     currenttime = DateHelper.CurrentTimestamp()
-    res = dbcursor.execute("SELECT Id FROM Sensors WHERE Module IS \""+moduleid+"\"").fetchall()
+    res = dbcursor.execute("SELECT Id,Measurand,Calibration FROM Sensors WHERE Module IS \""+moduleid+"\"").fetchall()
     sensorids = [ r[0] for r in res ]
-    measurands = []
-    for sensorid in sensorids:
-      measurands.append(dbcursor.execute("SELECT Measurand FROM Sensors WHERE Id IS "+str(sensorid)).fetchone()[0])
+    measurands = [ r[1] for r in res ]
     measurandsstring = ""
     for i in range(0,len(measurands)):
       measurandsstring = measurandsstring + measurands[i]
       if i < len(measurands)-1:
         measurandsstring = measurandsstring + ","
+    calibrations = [ r[2] for r in res ]
 
     #find last timestamp among all sensors (this is the minimal point up to which we have to update data)
+    maxdbtimestampForSensors = []
     maxdbtimestamp = None
-#    for sensorid in sensorids:
-#      mt = dbcursor.execute("SELECT MAX(Timestamp) FROM Data"+str(sensorid)).fetchone()[0]
-#      if mt != None and (maxdbtimestamp == None or mt < maxdbtimestamp): #< is correct here
-#        maxdbtimestamp = mt
+    for i in range(0,len(sensorids)):
+      sensorid = sensorids[i]
+      res =  influxClient.query("SELECT LAST(value) FROM " + db + ".autogen." + measurands[i] + " WHERE sensorid=\'" + modulename + "\';", epoch="s")
+      mt = [ r["time"] for r in res.get_points() ]
+      print mt
+      if len(mt) != 0:
+        maxdbtimestampForSensors.append(mt[0])
+        if maxdbtimestamp == None or mt[0] < maxdbtimestamp:
+          maxdbtimestamp = mt[0]
 
     if maxdbtimestamp == None:
       #get minimal timestamp for device/module from server
@@ -127,14 +185,41 @@ def ImportDataForAccount(account):
       Tools.PrintWithoutNewline("    Retrieving data from "+DateHelper.DateFromDatetime(DateHelper.DatetimeFromTimestamp(maxdbtimestamp,None))+" to now: "+str(int((float(date_end)-float(maxdbtimestamp))/float(maxval)*100.0))+'%  ')
 
       if len(data) != 0: #might be empty in case there is no data in this time window. we shouldn't break here though since there might still be earlier data
+        #create influxdata
+        influxdata = []
         for timestamp in data.keys():
           for i in range(0,len(sensorids)):
             sensorid = sensorids[i]
             if data[timestamp][i] != None:
-              #dbcursor.execute("INSERT INTO Data"+str(sensorid)+" (Timestamp,Value) VALUES ("+str(timestamp)+","+str(data[timestamp][i])+")")
+
+              if timestamp <= maxdbtimestampForSensors[i]:
+                continue
+
+              influxpoint = {}
+              influxpoint["time"] = int(timestamp)
+              influxpoint["measurement"] = measurands[i]
+              influxpoint["fields"] = {}
+
+              #use correct data types
+              if measurands[i] in set(['CO2','Noise','Humidity','Pressure']):
+                value = int(data[timestamp][i])+int(calibrations[i])
+              else:
+                value = float(data[timestamp][i])+float(calibrations[i])
+
+              influxpoint["fields"]["value"] = value
+
+              influxpoint["tags"] = {}
+              influxpoint["tags"]["location"] = GetModuleLocation(moduleid,int(timestamp))
+              influxpoint["tags"]["sensorid"] = modulename
+
+              influxdata.append(influxpoint)
               datapointcounter = datapointcounter + 1
 
-          #dbconn.commit()
+        influxClient.write_points(influxdata, time_precision="s")
+        sys.exit(0)
+
+      #for debugging
+      break
 
     Tools.PrintWithoutNewline("    Retrieving data from "+DateHelper.DateFromDatetime(DateHelper.DatetimeFromTimestamp(maxdbtimestamp,None))+" to now: 100%  ")
     print ""
@@ -157,6 +242,8 @@ def signal_handler(signal, frame):
   SetDates(dbconn, dbcursor)
   dbconn.commit()
   dbconn.close()
+  influxClient.commit()
+  influxClient.close()
   sys.exit(0)
 signal.signal(signal.SIGINT, signal_handler)
 
@@ -165,3 +252,5 @@ signal.signal(signal.SIGINT, signal_handler)
 ImportData()
 dbconn.commit()
 dbconn.close()
+influxClient.commit()
+influxClient.close()

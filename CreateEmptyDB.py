@@ -94,12 +94,24 @@ def CreateEmptyDB():
     "STRFTIME(\"%Y-%m-%d %H:%M:%SZ\", DATETIME(ModuleLocations.Begin, \'unixepoch\')) AS \"Begin\" , \n" \
     "STRFTIME(\"%Y-%m-%d %H:%M:%SZ\", DATETIME(ModuleLocations.End, \'unixepoch\')) AS \"End\", \n" \
     "Locations.Name AS \"Location Name\", \n"\
-    "ModuleLocations.Begin AS \"BeginTimestamp\", \n" \
-    "ModuleLocations.End AS \"EndTimestamp\", \n" \
+    "ModuleLocations.Begin AS \"Begin Timestamp\", \n" \
+    "ModuleLocations.End AS \"End Timestamp\", \n" \
     "Locations.Timezone AS \"Timezone\" \n" \
     "FROM Modules \n" \
     "INNER JOIN ModuleLocations ON ModuleLocations.Module = Modules.Id \n" \
     "INNER JOIN Locations ON ModuleLocations.Location = Locations.Id \n" \
+  )
+
+  dbcursor.execute(\
+  "CREATE TABLE \"InfluxDB\" ( \n" \
+  "`Id` INTEGER, \n" \
+  "`Host` TEXT, \n" \
+  "`Port` INTEGER, \n" \
+  "`User` INTEGER, \n" \
+  "`Password` INTEGER, \n" \
+  "`Database` TEXT, \n" \
+  "`SSL` INTEGER, \n" \
+  "PRIMARY KEY(Id)) \n" \
   )
 
   dbconn.commit()
