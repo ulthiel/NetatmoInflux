@@ -1,22 +1,21 @@
 #!/usr/bin/env python2.7
 # -*- coding: utf-8 -*-
 ##############################################################################
-# WeatherStats
+# NetatmoInflux
 #
-# A collection of Python scripts for general sensor data management and analysis,
-# with Netatmo support.
+# Python scripts for importing Netatmo data into an InfluxDB.
 #
-# (C) 2015-2018, Ulrich Thiel
+# (C) 2015-2019, Ulrich Thiel
 # ulrich.thiel@sydney.edu.au
 ##############################################################################
-#This file is part of WeatherStats.
+#This file is part of NetatmoInflux.
 #
-#WeatherStats is free software: you can redistribute it and/or modify
+#NetatmoInflux is free software: you can redistribute it and/or modify
 #it under the terms of the GNU General Public License as published by
 #the Free Software Foundation, either version 3 of the License, or
 #(at your option) any later version.
 #
-#WeatherStats is distributed in the hope that it will be useful,
+#NetatmoInflux is distributed in the hope that it will be useful,
 #but WITHOUT ANY WARRANTY; without even the implied warranty of
 #MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #GNU General Public License for more details.
@@ -36,8 +35,6 @@ import os.path
 from lib import ColorPrint
 from lib import Netatmo
 import getpass
-from lib import DateHelper
-from lib import Tools
 import sys
 import signal
 from influxdb import InfluxDBClient

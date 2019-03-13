@@ -1,12 +1,11 @@
 #!/usr/bin/env python2.7
 # -*- coding: utf-8 -*-
 ##############################################################################
-# WeatherStats
+# NetatmoInflux
 #
-# A collection of Python scripts for general sensor data management and analysis,
-# with Netatmo support.
+# Python scripts for importing Netatmo data into an InfluxDB.
 #
-# (C) 2015-2018, Ulrich Thiel
+# (C) 2015-2019, Ulrich Thiel
 # ulrich.thiel@sydney.edu.au
 ##############################################################################
 #This file is part of WeatherStats.
@@ -116,10 +115,3 @@ def CreateEmptyDB():
 
   dbconn.commit()
   dbconn.close()
-
-#First, check if database exists and create empty one if not
-if not os.path.isfile("Netatmo.db"):
-  CreateEmptyDB()
-  ColorPrint.ColorPrint("New database created", "okgreen")
-else:
-  ColorPrint.ColorPrint("Database exists already", "error")

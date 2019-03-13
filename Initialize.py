@@ -1,22 +1,21 @@
 #!/usr/bin/env python2.7
 # -*- coding: utf-8 -*-
 ##############################################################################
-# WeatherStats
+# NetatmoInflux
 #
-# A collection of Python scripts for general sensor data management and analysis,
-# with Netatmo support.
+# Python scripts for importing Netatmo data into an InfluxDB.
 #
-# (C) 2015-2018, Ulrich Thiel
+# (C) 2015-2019, Ulrich Thiel
 # ulrich.thiel@sydney.edu.au
 ##############################################################################
-#This file is part of WeatherStats.
+#This file is part of NetatmoInflux.
 #
-#WeatherStats is free software: you can redistribute it and/or modify
+#NetatmoInflux is free software: you can redistribute it and/or modify
 #it under the terms of the GNU General Public License as published by
 #the Free Software Foundation, either version 3 of the License, or
 #(at your option) any later version.
 #
-#WeatherStats is distributed in the hope that it will be useful,
+#NetatmoInflux is distributed in the hope that it will be useful,
 #but WITHOUT ANY WARRANTY; without even the implied warranty of
 #MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #GNU General Public License for more details.
@@ -36,23 +35,110 @@ import os.path
 from lib import ColorPrint
 from lib import Netatmo
 import getpass
-from lib import DateHelper
-from lib import Tools
-from SetDatesInDB import SetDates
-from AddSensor import AddNewDataTable
 import sys
 import signal
 
-
 ##############################################################################
-#database connection
+# database connection
+dbexists = os.path.isfile("Netatmo.db")
 dbconn = sqlite3.connect('Netatmo.db')
 dbcursor = dbconn.cursor()
 
 
 ##############################################################################
-#function to update all devices/modules for specific account (this is the main function)
-def UpdateNetatmoForAccount(account):
+#Ctrl+C handler
+def signal_handler(signal, frame):
+  ColorPrint.ColorPrint("\nYou pressed Ctrl+C", "error")
+  SetDates(dbconn, dbcursor)
+  dbconn.commit()
+  dbconn.close()
+  sys.exit(0)
+signal.signal(signal.SIGINT, signal_handler)
+
+##############################################################################
+#Creates empty database
+def CreateEmptyDB():
+
+  dbcursor.execute(\
+    "CREATE TABLE \"Accounts\" (\n" \
+    "`User` TEXT,\n" \
+    "`Password` TEXT,\n" \
+    "`ClientID` TEXT,\n" \
+    "`ClientSecret` TEXT,\n" \
+    "PRIMARY KEY(User) ON CONFLICT REPLACE)\n"\
+  )
+
+  dbcursor.execute(\
+    "CREATE TABLE \"Modules\" (\n" \
+    "`Id` TEXT,\n" \
+    "`Name` TEXT,\n" \
+    "PRIMARY KEY(Id))\n"\
+  )
+
+  dbcursor.execute(\
+    "CREATE TABLE \"Sensors\" (\n" \
+    "`Id` INTEGER,\n" \
+    "`Module` TEXT,\n" \
+    "`Measurand` INTEGER,\n" \
+    "`Unit` INTEGER,\n" \
+    "`Name` TEXT,\n" \
+    "`Calibration` REAL,\n" \
+    "`Interval` INTEGER,\n" \
+    "PRIMARY KEY(Id))\n" \
+  )
+
+  dbcursor.execute(\
+    "CREATE TABLE \"Locations\" (\n" \
+    "`Id` INTEGER,\n" \
+    "`PositionNorth` REAL,\n" \
+    "`PositionEast` REAL,\n" \
+    "`Elevation` INTEGER,\n" \
+    "`Name` TEXT,\n" \
+    "`Timezone` TEXT,\n" \
+    "PRIMARY KEY(Id))\n" \
+  )
+
+  dbcursor.execute(\
+    "CREATE TABLE \"ModuleLocations\" (\n" \
+    "`Module` TEXT,\n" \
+    "`Begin` TEXT,\n" \
+    "`End` TEXT,\n" \
+    "`Location` INTEGER,\n" \
+    "PRIMARY KEY(Module, Begin, End))\n" \
+  )
+
+  dbcursor.execute(\
+    "CREATE VIEW \"ModulesView\" AS \n" \
+    "SELECT Modules.Id AS \"Module Id\", \n" \
+    "Modules.Name AS \"Module Name\", \n" \
+    "STRFTIME(\"%Y-%m-%d %H:%M:%SZ\", DATETIME(ModuleLocations.Begin, \'unixepoch\')) AS \"Begin\" , \n" \
+    "STRFTIME(\"%Y-%m-%d %H:%M:%SZ\", DATETIME(ModuleLocations.End, \'unixepoch\')) AS \"End\", \n" \
+    "Locations.Name AS \"Location Name\", \n"\
+    "ModuleLocations.Begin AS \"Begin Timestamp\", \n" \
+    "ModuleLocations.End AS \"End Timestamp\", \n" \
+    "Locations.Timezone AS \"Timezone\" \n" \
+    "FROM Modules \n" \
+    "INNER JOIN ModuleLocations ON ModuleLocations.Module = Modules.Id \n" \
+    "INNER JOIN Locations ON ModuleLocations.Location = Locations.Id \n" \
+  )
+
+  dbcursor.execute(\
+  "CREATE TABLE \"InfluxDB\" ( \n" \
+  "`Id` INTEGER, \n" \
+  "`Host` TEXT, \n" \
+  "`Port` INTEGER, \n" \
+  "`User` INTEGER, \n" \
+  "`Password` INTEGER, \n" \
+  "`Database` TEXT, \n" \
+  "`SSL` INTEGER, \n" \
+  "PRIMARY KEY(Id)) \n" \
+  )
+
+  dbconn.commit()
+
+##############################################################################
+#add all devices/modules for specific account
+def InitializeAccount(account):
 
   username = account[0]
   password = account[1]
@@ -170,25 +256,108 @@ def UpdateNetatmoForAccount(account):
 
 ##############################################################################
 #This iterates through all accounts
-def UpdateNetatmoAccounts():
+def InitializeAccounts():
 
   dbcursor.execute("SELECT * From Accounts")
   res = dbcursor.fetchall()
   for account in res:
-    UpdateNetatmoForAccount(account)
+    InitializeAccount(account)
 
 ##############################################################################
-#Ctrl+C handler
-def signal_handler(signal, frame):
-  ColorPrint.ColorPrint("\nYou pressed Ctrl+C", "error")
-  SetDates(dbconn, dbcursor)
+#function to add a Netatmo account to the data base
+def AddAccount():
+  print "-----------------------"
+  print "| Add Netatmo account |"
+  print "-----------------------"
+  username = raw_input("User: ")
+  password = getpass.getpass()
+  ColorPrint.ColorPrint("Do you want to save the password as clear text to the database?\nIf not, you have to enter it on any update.", "warning")
+  savepassw = raw_input("Save (y/n)?: ")
+  if not (savepassw == "Y" or savepassw == "y"):
+    savepassw = False
+  else:
+    savepassw = True
+  ColorPrint.ColorPrint("You have to grant client access for WeatherStats. If not done yet,\nlog into\n\thttps://dev.netatmo.com/dev/myaccount\nand add an app called \"WeatherStats\". You will be given a client \nid and a client secret.", "warning")
+  clientId = raw_input("Client id: ")
+  clientSecret = raw_input("Client secret: ")
+
+  #check if it works
+  netatm = Netatmo.NetatmoClient(username, password, clientId, clientSecret)
+  netatm.getStationData()
+
+  if savepassw:
+    dbcursor.execute(\
+      "INSERT INTO Accounts (User, Password, ClientID, ClientSecret)\n"\
+      "VALUES (\"" + username + "\",\"" + password + "\",\"" + clientId + "\",\"" + clientSecret + "\")"
+    )
+  else:
+    dbcursor.execute(\
+      "INSERT INTO Accounts (User, Password, ClientID, ClientSecret)\n"\
+      "VALUES (\"" + username + "\",NULL,\"" + clientId + "\",\"" + clientSecret + "\")"
+    )
+
+  ColorPrint.ColorPrint("Account added", "okgreen")
+
   dbconn.commit()
-  dbconn.close()
-  sys.exit(0)
-signal.signal(signal.SIGINT, signal_handler)
+
+##############################################################################
+#function to add an InfluxDB
+def AddInflux():
+  print "-----------------------"
+  print "| Add InfluxDB         |"
+  print "-----------------------"
+  host = raw_input("Host: ")
+  port = raw_input("Port: ")
+  user = raw_input("User: ")
+  password = getpass.getpass()
+  ColorPrint.ColorPrint("Do you want to save the password as clear text to the database?\nIf not, you have to enter it on any update.", "warning")
+  savepassw = raw_input("Save (y/n)?: ")
+  if not (savepassw == "Y" or savepassw == "y"):
+    savepassw = False
+  else:
+    savepassw = True
+  db = raw_input("Database: ")
+  ssl = raw_input("Use SSL (y/n)?: ")
+  if not (ssl == "Y" or ssl == "y"):
+    ssl = 0
+  else:
+    ssl = 1
+
+  if savepassw == True:
+    dbcursor.execute(\
+      "INSERT INTO InfluxDB (Host, Port, User, Password, Database,SSL)\n"\
+      "VALUES (\"" + host + "\",\"" + port + "\",\"" + user + "\",\"" + password + "\", \""+db+"\", "+str(ssl)+" )"
+    )
+  else:
+    dbcursor.execute(\
+      "INSERT INTO InfluxDB (Host, Port, User, Password, Database,SSL)\n"\
+      "VALUES (\"" + host + "\",\"" + port + "\",\"" + user + "\", NULL, \""+db+"\", "+str(ssl)+" )"
+    )
+
+  ColorPrint.ColorPrint("InfluxDB added", "okgreen")
+
+  dbconn.commit()
 
 ##############################################################################
 #Main
-UpdateNetatmoAccounts()
+
+#First, check if database exists and create empty one if not
+if dbexists == False:
+  CreateEmptyDB()
+  ColorPrint.ColorPrint("New database created", "okgreen")
+
+#Now, add accounts
+res = dbcursor.execute("SELECT * FROM Accounts").fetchall()
+if len(res) == 0:
+  AddAccount()
+
+# Initialize accounts
+InitializeAccounts()
+
+#Add InfluxDB
+res = dbcursor.execute("SELECT * FROM InfluxDB").fetchall()
+if len(res) == 0:
+  AddInflux()
+
 dbconn.commit()
 dbconn.close()
