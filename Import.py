@@ -60,10 +60,16 @@ if ssl == None or ssl == 0:
   ssl = False
 elif ssl == 1:
   ssl = True
-if ssl:
-  influxClient = InfluxDBClient(host, port, user, password, db, ssl=True, verify_ssl=True)
-else:
-  influxClient = InfluxDBClient(host, port, user, password, db)
+  sslVerify = dbcursor.execute("SELECT SSLVerify FROM InfluxDB WHERE Id=1").fetchone()[0]
+  if sslVerify == None or sslVerify == 0:
+    sslVerify = False
+    #the following suppresses warnings
+    import requests
+    requests.packages.urllib3.disable_warnings()
+  else:
+    sslVerify = True
+
+influxClient = InfluxDBClient(host, port, user, password, db, ssl=ssl, verify_ssl=sslVerify)
 
 ##############################################################################
 #get locations

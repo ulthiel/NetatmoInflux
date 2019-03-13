@@ -127,10 +127,11 @@ def CreateEmptyDB():
   "`Id` INTEGER, \n" \
   "`Host` TEXT, \n" \
   "`Port` INTEGER, \n" \
-  "`User` INTEGER, \n" \
-  "`Password` INTEGER, \n" \
+  "`User` TEXT, \n" \
+  "`Password` TEXT, \n" \
   "`Database` TEXT, \n" \
   "`SSL` INTEGER, \n" \
+  "`SSLVerify` INTEGER, \n" \
   "PRIMARY KEY(Id)) \n" \
   )
 
@@ -322,6 +323,7 @@ def AddInflux():
     ssl = 0
   else:
     ssl = 1
+    sslVerify = 1
 
   if savepassw == True:
     dbcursor.execute(\
@@ -330,8 +332,8 @@ def AddInflux():
     )
   else:
     dbcursor.execute(\
-      "INSERT INTO InfluxDB (Host, Port, User, Password, Database,SSL)\n"\
-      "VALUES (\"" + host + "\",\"" + port + "\",\"" + user + "\", NULL, \""+db+"\", "+str(ssl)+" )"
+      "INSERT INTO InfluxDB (Host, Port, User, Password, Database,SSL,SSLVerify)\n"\
+      "VALUES (\"" + host + "\",\"" + port + "\",\"" + user + "\", NULL, \""+db+"\", "+str(ssl)+", "+str(sslVerify)+" )"
     )
 
   ColorPrint.ColorPrint("InfluxDB added", "okgreen")
