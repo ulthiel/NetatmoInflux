@@ -147,7 +147,7 @@ def InitializeAccount(account):
 
   print "Getting modules for account " + username
 
-  if password == "":
+  if password == None:
     password = getpass.getpass()
 
   netatm = Netatmo.NetatmoClient(username, password, clientId, clientSecret)

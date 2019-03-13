@@ -34,6 +34,8 @@ import sqlite3
 import os.path
 from lib import ColorPrint
 from lib import Netatmo
+from lib import DateHelper
+from lib import Tools
 import getpass
 import sys
 import signal
@@ -50,6 +52,8 @@ host = dbcursor.execute("SELECT Host FROM InfluxDB WHERE Id=1").fetchone()[0]
 port = dbcursor.execute("SELECT Port FROM InfluxDB WHERE Id=1").fetchone()[0]
 user = dbcursor.execute("SELECT User FROM InfluxDB WHERE Id=1").fetchone()[0]
 password = dbcursor.execute("SELECT Password FROM InfluxDB WHERE Id=1").fetchone()[0]
+if password == None:
+  password = getpass.getpass("InfluxDB password: ")
 db = dbcursor.execute("SELECT Database FROM InfluxDB WHERE Id=1").fetchone()[0]
 ssl = dbcursor.execute("SELECT SSL FROM InfluxDB WHERE Id=1").fetchone()[0]
 if ssl == None or ssl == 0:
@@ -107,8 +111,8 @@ def ImportDataForAccount(account):
 
   print "Importing data for account " + username
 
-  if password == "":
-    password = getpass.getpass()
+  if password == None:
+    password = getpass.getpass("Account password: ")
 
   netatm = Netatmo.NetatmoClient(username, password, clientId, clientSecret)
   netatm.getStationData()
@@ -233,7 +237,6 @@ def ImportData():
 #Ctrl+C handler
 def signal_handler(signal, frame):
   ColorPrint.ColorPrint("\nYou pressed Ctrl+C", "error")
-  SetDates(dbconn, dbcursor)
   dbconn.commit()
   dbconn.close()
   influxClient.commit()
