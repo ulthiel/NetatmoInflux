@@ -156,18 +156,19 @@ def ImportDataForAccount(account):
       sensorid = sensorids[i]
       res =  influxClient.query("SELECT LAST(value) FROM " + db + ".autogen." + measurands[i] + " WHERE sensorid=\'" + modulename + "\';", epoch="s")
       mt = [ r["time"] for r in res.get_points() ]
-      print mt
       if len(mt) != 0:
         maxdbtimestampForSensors.append(mt[0])
         if maxdbtimestamp == None or mt[0] < maxdbtimestamp:
           maxdbtimestamp = mt[0]
+      else:
+        maxdbtimestampForSensors.append(None)
 
     if maxdbtimestamp == None:
       #get minimal timestamp for device/module from server
       data = netatm.getMeasure(id[0],id[1],"max",measurandsstring,None,None,None,"false")
       maxdbtimestamp = min(map(int,data.keys()))
 
-    Tools.PrintWithoutNewline("    Retrieving data from "+DateHelper.DateFromDatetime(DateHelper.DatetimeFromTimestamp(maxdbtimestamp,None))+" to now: 0%  ")
+    Tools.PrintWithoutNewline("    Retrieving data from "+DateHelper.DatetimeFromTimestamp(maxdbtimestamp,None)+" to now: 0%  ")
 
     date_begin = maxdbtimestamp
     date_end = maxdbtimestamp + 1 #will be modified soon
@@ -182,7 +183,7 @@ def ImportDataForAccount(account):
       timestampcounter = timestampcounter + len(data)
       date_begin = date_end+1
 
-      Tools.PrintWithoutNewline("    Retrieving data from "+DateHelper.DateFromDatetime(DateHelper.DatetimeFromTimestamp(maxdbtimestamp,None))+" to now: "+str(int((float(date_end)-float(maxdbtimestamp))/float(maxval)*100.0))+'%  ')
+      Tools.PrintWithoutNewline("    Retrieving data from "+DateHelper.DatetimeFromTimestamp(maxdbtimestamp,None)+" to now: "+str(int((float(date_end)-float(maxdbtimestamp))/float(maxval)*100.0))+'%  ')
 
       if len(data) != 0: #might be empty in case there is no data in this time window. we shouldn't break here though since there might still be earlier data
         #create influxdata
@@ -192,7 +193,7 @@ def ImportDataForAccount(account):
             sensorid = sensorids[i]
             if data[timestamp][i] != None:
 
-              if timestamp <= maxdbtimestampForSensors[i]:
+              if maxdbtimestampForSensors[i] != None and timestamp <= maxdbtimestampForSensors[i]:
                 continue
 
               influxpoint = {}
@@ -216,12 +217,8 @@ def ImportDataForAccount(account):
               datapointcounter = datapointcounter + 1
 
         influxClient.write_points(influxdata, time_precision="s")
-        sys.exit(0)
 
-      #for debugging
-      break
-
-    Tools.PrintWithoutNewline("    Retrieving data from "+DateHelper.DateFromDatetime(DateHelper.DatetimeFromTimestamp(maxdbtimestamp,None))+" to now: 100%  ")
+    Tools.PrintWithoutNewline("    Retrieving data from "+DateHelper.DatetimeFromTimestamp(maxdbtimestamp,None)+" to now: 100%  ")
     print ""
     ColorPrint.ColorPrint("    "+str(datapointcounter)+" data points for "+str(timestampcounter)+" timestamps received", "okgreen")
 
@@ -252,5 +249,4 @@ signal.signal(signal.SIGINT, signal_handler)
 ImportData()
 dbconn.commit()
 dbconn.close()
-influxClient.commit()
 influxClient.close()
