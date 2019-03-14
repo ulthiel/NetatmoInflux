@@ -4,6 +4,9 @@ A [Python](https://www.python.org) script for importing [Netatmo](https://www.ne
 
 ![dashboard](https://raw.githubusercontent.com/ulthiel/NetatmoInflux/master/doc/dashboard.jpg)
 
+What makes this script a bit more powerful than others, I think, is that you can manage your past locations conveniently (in case you moved cities) and that data will be tagged accordingly in the InfluxDB.
+
+
 ## Installation
 
 You will need some minor programming skills, but I guess otherwise you wouldn't be here.
