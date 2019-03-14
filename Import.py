@@ -114,22 +114,30 @@ def GetModuleLocation(moduleid, timestamp):
     elif loc["Begin"] <= timestamp and timestamp <= loc["End"]:
       return loc["Location"]
 
-
 ##############################################################################
-#function to import all data for specific account (this is the main function)
-def ImportDataForAccount(account):
-
+#set up Netatmo clients (so that we don't have to re-create them at every
+#import)
+accounts = dbcursor.execute("SELECT * From Accounts").fetchall()
+netatms = []
+for account in accounts:
   username = account[0]
   password = account[1]
   clientId = account[2]
   clientSecret = account[3]
 
-  print "Importing data for account " + username
-
   if password == None:
-    password = getpass.getpass("Account password: ")
+    password = getpass.getpass("Account password for "+username+": ")
 
   netatm = Netatmo.NetatmoClient(username, password, clientId, clientSecret)
+  netatms.append(netatm)
+
+
+##############################################################################
+#function to import all data for specific account (this is the main function)
+def ImportData(netatm):
+
+  print "Import data for account "+netatm.username
+  
   netatm.getStationData()
 
   # go through all modules for this device
@@ -241,12 +249,10 @@ def ImportDataForAccount(account):
 
 ##############################################################################
 #This iterates through all accounts
-def ImportData():
+def ImportDataForAllAccounts():
 
-  dbcursor.execute("SELECT * From Accounts")
-  res = dbcursor.fetchall()
-  for account in res:
-    ImportDataForAccount(account)
+  for netatm in netatms:
+    ImportData(netatm)
 
 ##############################################################################
 #Ctrl+C handler
@@ -260,11 +266,11 @@ def signal_handler(signal, frame):
 ##############################################################################
 #Main
 if service == False:
-  ImportData()
+  ImportDataForAllAccounts()
 else:
   while True:
-    ImportData()
-    time.sleep(605) #add an extra 5 seconds in case there's a lag
+    ImportDataForAllAccounts()
+    time.sleep(610) #add an extra 10 seconds in case there's a lag
 
 dbconn.close()
 influxClient.close()

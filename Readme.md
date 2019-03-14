@@ -86,16 +86,18 @@ You can check out the *ModulesView* table for a complete overview.
 
 ### Import
 
-The import script ```Import.py``` will import the sensor data from the Netatmo server into your InfluxDB. Just run:
+The import script ```Import.py``` imports the sensor data from the Netatmo server into your InfluxDB. Just run:
 
 ```
 python Import.py
 ```
 
-You can also start this as a service via
+The Netamo module id and the location will be stored as tags for each measurement. The script will always look for the latest available timestamp for each sensor and then starts retrieving data from this timestamp on. So, even if the script crashes (e.g., if the network connection breaks down), you can re-start it as if nothing happened and there won't be data corruption (I hope so).
+
+You can also start this script as a service via
 
 ```
 python Import.py --service
 ```
 
-which will execute the import every 10 minutes so that your data in the InfluxDB is always up to date. The Netamo module id and the location will be stored as tags for each measurement.
+which will execute the import every 10 minutes so that your data in the InfluxDB is always up to date.
