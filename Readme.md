@@ -74,7 +74,7 @@ In principle, you could already run the import script ```Import.py``` to import 
 
 When I've written NetatmoInflux, I had a Netatmo module for almost 5 years already and I've moved cities a couple of times in between. I wanted to preserve the location information correctly as tags in the InfluxDB, so I had to tell the import script in which time windows the module was located where. This is done as follows (if you never moved or if you don't care, you can skip all of this).
 
-The initialization script will create a local [SQLite](https://www.sqlite.org) database named ```Netatmo.db``` in which all the account information is stored. You can either view this database with the SQLite command line tool or you get neat [DB Browser for SQLite](https://sqlitebrowser.org). There is a table called *Locations* to store location information. This should contain the location you've currently stored on the Netatmo server. But here you may add all your past locations as well. This is how my table looks like:
+The initialization script will create a local [SQLite](https://www.sqlite.org) database named ```Netatmo.db``` in which all the account information is stored. You can either view this database with the SQLite command line tool or you get the neat [DB Browser for SQLite](https://sqlitebrowser.org). There is a table called *Locations* to store location information. This should contain the location you've currently stored on the Netatmo server. But here you may add all your past locations as well. This is how my table looks like:
 
 ![locations](https://raw.githubusercontent.com/ulthiel/NetatmoInflux/master/doc/locations.jpg)
 
@@ -101,3 +101,5 @@ python Import.py --service
 ```
 
 which will execute the import every 10 minutes so that your data in the InfluxDB is always up to date.
+
+Happy analyzing!
