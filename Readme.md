@@ -76,11 +76,11 @@ When I've written NetatmoInflux, I had a Netatmo module for almost 5 years alrea
 
 The initialization script will create a local [SQLite](https://www.sqlite.org) database named ```Netatmo.db``` in which all the account information is stored. You can either view this database with the SQLite command line tool or you get neat [DB Browser for SQLite](https://sqlitebrowser.org). There is a table called *Locations* to store location information. This should contain the location you've currently stored on the Netatmo server. But here you may add all your past locations as well. This is how my table looks like:
 
-![dashboard](https://raw.githubusercontent.com/ulthiel/NetatmoInflux/master/doc/locations.jpg)
+![locations](https://raw.githubusercontent.com/ulthiel/NetatmoInflux/master/doc/locations.jpg)
 
 Now, with the table *ModuleLocations* you can manage the locations of your modules. For each module you have to provide a begin/end time stamp (this may be empty as well)  describing the time window and then you have to give a location id as in the *Locations* table.
 
-![dashboard](https://raw.githubusercontent.com/ulthiel/NetatmoInflux/master/doc/modulelocations.jpg)
+![modulelocations](https://raw.githubusercontent.com/ulthiel/NetatmoInflux/master/doc/modulelocations.jpg)
 
 You can check out the *ModulesView* table for a complete overview.
 
