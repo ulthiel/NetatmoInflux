@@ -3,7 +3,7 @@
 ##############################################################################
 # NetatmoInflux
 #
-# Python scripts for importing Netatmo data into an InfluxDB.
+# Python script for importing Netatmo data into an InfluxDB.
 #
 # (C) 2015-2019, Ulrich Thiel
 # ulrich.thiel@sydney.edu.au
@@ -40,6 +40,15 @@ import getpass
 import sys
 import signal
 from influxdb import InfluxDBClient
+from optparse import OptionParser
+import time
+
+###############################################################################
+#parse options
+parser = OptionParser()
+parser.add_option("--service", action="store_true", dest="service",help="Run as service", default=False)
+(options, args) = parser.parse_args()
+service = options.service
 
 ##############################################################################
 #database connection
@@ -243,16 +252,19 @@ def ImportData():
 #Ctrl+C handler
 def signal_handler(signal, frame):
   ColorPrint.ColorPrint("\nYou pressed Ctrl+C", "error")
-  dbconn.commit()
   dbconn.close()
-  influxClient.commit()
   influxClient.close()
+  signal.signal(signal.SIGINT, signal_handler)
   sys.exit(0)
-signal.signal(signal.SIGINT, signal_handler)
 
 ##############################################################################
 #Main
-ImportData()
-dbconn.commit()
+if service == False:
+  ImportData()
+else:
+  while True:
+    ImportData()
+    time.sleep(305) #add an extra 5 seconds in case there's a lag
+
 dbconn.close()
 influxClient.close()

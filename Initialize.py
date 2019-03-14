@@ -3,7 +3,7 @@
 ##############################################################################
 # NetatmoInflux
 #
-# Python scripts for importing Netatmo data into an InfluxDB.
+# Python script for importing Netatmo data into an InfluxDB.
 #
 # (C) 2015-2019, Ulrich Thiel
 # ulrich.thiel@sydney.edu.au
