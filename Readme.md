@@ -98,4 +98,4 @@ You can also start this as a service via
 python Import.py --service
 ```
 
-which will execute the import every 5 minutes so that your data in the InfluxDB is always up to date.
+which will execute the import every 10 minutes so that your data in the InfluxDB is always up to date. The Netamo module id and the location will be stored as tags for each measurement.

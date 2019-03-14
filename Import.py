@@ -264,7 +264,7 @@ if service == False:
 else:
   while True:
     ImportData()
-    time.sleep(305) #add an extra 5 seconds in case there's a lag
+    time.sleep(605) #add an extra 5 seconds in case there's a lag
 
 dbconn.close()
 influxClient.close()
