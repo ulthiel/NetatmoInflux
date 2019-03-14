@@ -39,10 +39,10 @@ Password:
 Do you want to save the password as clear text to the database?
 If not, you have to enter it on any update.
 Save (y/n)?: y
-You have to grant client access for WeatherStats. If not done yet,
+You have to grant client access for NetatmoInflux. If not done yet,
 log into
 	https://dev.netatmo.com/dev/myaccount
-and add an app called "WeatherStats". You will be given a client
+and add an app called "NetatmoInflux". You will be given a client
 id and a client secret.
 Client id: blah
 Client secret: blah
