@@ -1,6 +1,6 @@
 # NetatmoInflux
 
-A [Python](https://www.python.org) script for importing [Netatmo](https://www.netatmo.com/) sensor data into an [InfluxDB](https://docs.influxdata.com/influxdb/) time series data base. Using [Chronograf](https://docs.influxdata.com/chronograf/) you can then run complex data analysis and create beautiful dashboards like this one here:
+A [Python](https://www.python.org) script for importing [Netatmo](https://www.netatmo.com/) sensor data into an [InfluxDB](https://docs.influxdata.com/influxdb/) time series database. Using [Chronograf](https://docs.influxdata.com/chronograf/) you can then run complex data analysis and create beautiful dashboards like this one here:
 
 ![dashboard](https://raw.githubusercontent.com/ulthiel/NetatmoInflux/master/doc/dashboard.jpg)
 
@@ -47,7 +47,7 @@ id and a client secret.
 Client id: blah
 Client secret: blah
 Account added
-Getting modules for account globalproj@gmx.net
+Getting modules for account blah
 Added device blah (Indoor module) at location 1 (Sydney, Indoor)
 Added module blah (Rain gauge) at location 2 (Sydney, Rain gauge)
 Added module blah (Outdoor module) at location 3 (Sydney, Outdoor)
@@ -90,6 +90,16 @@ The import script ```Import.py``` imports the sensor data from the Netatmo serve
 
 ```
 python Import.py
+Import data for account blah
+  Importing data for Netatmo Indoor Module blah
+    Retrieving data from 2019-03-14 05:18:06 to now: 100%
+    5 data points for 1 timestamps received
+  Importing data for Netatmo Rain Gauge blah
+    Retrieving data from 2019-03-14 05:17:53 to now: 100%
+    1 data points for 1 timestamps received
+  Importing data for Netatmo Outdoor Module blah
+    Retrieving data from 2019-03-14 05:17:40 to now: 100%
+    2 data points for 1 timestamps received
 ```
 
 The Netamo module id and the location will be stored as tags for each measurement. The script will always look for the latest available timestamp for each sensor and then starts retrieving data from this timestamp on. So, even if the script crashes (e.g., if the network connection breaks down), you can re-start it as if nothing happened and there won't be data corruption (I hope so).
@@ -100,6 +110,6 @@ You can also start this script as a service via
 python Import.py --service
 ```
 
-which will execute the import every 10 minutes so that your data in the InfluxDB is always up to date.
+which will execute the import every 10 minutes so that your data in the InfluxDB is always up to date (Netatmo devices sent their values in this interval, so polling more often doesn't make sense and the Netatmo servers will eventually block you temporarily).
 
-Happy analyzing!
+**Happy analyzing!**
