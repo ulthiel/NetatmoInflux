@@ -107,12 +107,56 @@ Import data for account blah
 
 The Netamo module id and the location will be stored as tags for each measurement. The script will always look for the latest available timestamp for each sensor and then starts retrieving data from this timestamp on. So, even if the script crashes (e.g., if the network connection breaks down), you can re-start it as if nothing happened and there won't be data corruption (I hope so).
 
-You can also start this script as a service via
+### Running as service
+
+To keep your data up to date you should run the import script as a service:
 
 ```
 python Import.py --service
 ```
 
-which will execute the import every 10 minutes so that your data in the InfluxDB is always up to date (Netatmo devices sent their values in this interval, so polling more often doesn't make sense and the Netatmo servers will eventually block you temporarily).
+This will keep the script in a loop and execute the import every 10 minutes. Netatmo devices sent their values in this interval, so polling more often doesn't make sense and the Netatmo servers will eventually block you temporarily.
+
+On a Linux server it's cleanest to have this run as a system service. It will depend on your Linux distribution how this is done. Under Ubuntu this works as follows. Register a new service via
+
+```
+sudo nano /lib/systemd/system/NetatmoInflux.service
+```
+
+and add the following:
+
+```
+[Unit]
+Description=NetatmoInflux Service
+After=multi-user.target
+
+[Service]
+Type=idle
+ExecStart=/usr/bin/python /home/blah/NetatmoInflux/NetatmoInflux.py --service
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Then change permissions on the service file:
+
+```
+sudo chmod 644 /lib/systemd/system/NetatmoInflux.service
+```
+
+Now, do
+
+```
+sudo systemctl daemon-reload
+sudo systemctl enable NetatmoInflux
+```
+
+The service should then be started automatically at boot time. You can check this with
+
+```
+systemctl status NetatmoInflux
+```
+
+
 
 **Happy analyzing!**
