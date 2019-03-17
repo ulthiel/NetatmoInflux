@@ -1,10 +1,10 @@
 # NetatmoInflux
 
-A [Python](https://www.python.org) script for importing [Netatmo](https://www.netatmo.com/) sensor data into an [InfluxDB](https://docs.influxdata.com/influxdb/) time series database. Using [Chronograf](https://docs.influxdata.com/chronograf/) you can then run complex data analysis and create beautiful dashboards like this one here:
+A [Python](https://www.python.org) script for importing [Netatmo](https://www.netatmo.com/) sensor data into an [InfluxDB](https://docs.influxdata.com/influxdb/) time series database. Using [Chronograf](https://docs.influxdata.com/chronograf/) or [Grafana](https://grafana.com) you can then run complex data analysis and create beautiful dashboards like this one here:
 
 ![dashboard](https://raw.githubusercontent.com/ulthiel/NetatmoInflux/master/doc/dashboard.jpg)
 
-What makes this script a bit more powerful than others, I think, is that you can manage your past locations conveniently (in case you moved cities) and that data will be tagged accordingly in the InfluxDB.
+What makes this script a bit more powerful than others, I think, is that you can manage your past locations conveniently (in case you moved cities) and that data will be tagged accordingly in the InfluxDB. Well, and I just wanted to learn this stuff...
 
 
 ## Installation

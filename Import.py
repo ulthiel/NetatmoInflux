@@ -52,7 +52,7 @@ service = options.service
 
 ##############################################################################
 #database connection
-dbconn = sqlite3.connect('Netatmo.db')
+dbconn = sqlite3.connect(os.path.dirname(os.path.realpath(__file__))+'/Netatmo.db')
 dbcursor = dbconn.cursor()
 
 ##############################################################################
@@ -137,7 +137,7 @@ for account in accounts:
 def ImportData(netatm):
 
   print "Import data for account "+netatm.username
-  
+
   netatm.getStationData()
 
   # go through all modules for this device

@@ -40,8 +40,8 @@ import signal
 
 ##############################################################################
 # database connection
-dbexists = os.path.isfile("Netatmo.db")
-dbconn = sqlite3.connect('Netatmo.db')
+dbexists = os.path.isfile(os.path.dirname(os.path.realpath(__file__))+"/Netatmo.db")
+dbconn = sqlite3.connect(os.path.dirname(os.path.realpath(__file__))+'/Netatmo.db')
 dbcursor = dbconn.cursor()
 
 
